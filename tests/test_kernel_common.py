@@ -28,10 +28,28 @@ def test_fires_never_when_period_nonpositive():
 def test_binom_bounds_and_determinism():
     g1 = torch.Generator(device=DEV); g1.manual_seed(123)
     g2 = torch.Generator(device=DEV); g2.manual_seed(123)
-    n = torch.full((1000,), 10, dtype=torch.int32, device=DEV)
-    p = torch.full((1000,), 0.3, device=DEV)
+    n = torch.full((1000,), 50, dtype=torch.int32, device=DEV)
+    p = torch.full((1000,), 0.5, device=DEV)
     a = binom(n, p, g1)
     b = binom(n, p, g2)
     assert torch.equal(a, b)
-    assert (a >= 0).all() and (a <= 10).all()
-    assert abs(a.float().mean().item() - 3.0) < 0.5
+    assert (a >= 0).all() and (a <= 50).all()
+    assert abs(a.float().mean().item() - 25.0) < 1.0
+    # different seed must produce a different draw
+    g3 = torch.Generator(device=DEV); g3.manual_seed(999)
+    c = binom(n, p, g3)
+    assert not torch.equal(a, c)
+
+
+def test_binom_negative_count_is_zero():
+    g = torch.Generator(device=DEV); g.manual_seed(42)
+    count = torch.tensor([-5, 10], dtype=torch.int32, device=DEV)
+    p = torch.tensor([0.5, 0.5], device=DEV)
+    out = binom(count, p, g)
+    assert out[0].item() == 0
+
+
+def test_zeff_negative_zraw_is_zero():
+    z = torch.tensor([-3.0, 1.0], device=DEV)
+    out = z_eff(z, z_max=8.0)
+    assert out[0].item() == 0.0

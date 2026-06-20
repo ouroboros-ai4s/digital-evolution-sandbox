@@ -19,4 +19,5 @@ def binom(count: torch.Tensor, prob: torch.Tensor, generator: torch.Generator) -
     p = prob.clamp(0.0, 1.0)
     n = count.float().clamp(min=0.0)
     drawn = torch.binomial(n, p, generator=generator)
-    return drawn.round().to(torch.int32).clamp(min=torch.zeros_like(count), max=count)
+    count_floor = count.clamp(min=0)
+    return drawn.round().to(torch.int32).clamp(min=0).clamp(max=count_floor)
