@@ -5,7 +5,7 @@ from des.phenotype_cache import StrainTable
 from des.world import init_bb0
 from des.kernels.antagonism import phase1_antagonism
 from des.kernels.reproduction import phase2_reproduce
-from des.kernels.arbitration import phase3_arbitrate
+from des.kernels.arbitration import phase3_arbitrate, phase3_arbitrate_vec
 
 
 class Engine:
@@ -41,7 +41,7 @@ class Engine:
         self._refresh_phe()
         # PHASE3: arbitration
         arrivals = buf.tensors()
-        nsid, ncnt, nbirth = phase3_arbitrate(
+        nsid, ncnt, nbirth = phase3_arbitrate_vec(
             self.world.strain_id, self.world.count, arrivals, self.K,
             self.birth, self.T, self.gen, MAXSID=len(self.table) + 1)
         self.world.strain_id, self.world.count, self.birth = nsid, ncnt, nbirth
