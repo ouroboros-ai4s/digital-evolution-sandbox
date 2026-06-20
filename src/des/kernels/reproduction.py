@@ -2,7 +2,7 @@
 from __future__ import annotations
 import torch
 from des.kernels.common import fires_this_tick, binom
-from des.registry import ALPHABET, BB0_TEMPLATE
+from des.registry import BB0_TEMPLATE
 
 
 class ArrivalBuffer:
