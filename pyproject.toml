@@ -1,0 +1,10 @@
+[project]
+name = "des"
+version = "0.1.0"
+requires-python = ">=3.12"
+# Dependencies are already present in the `basic` conda env (torch 2.10+cu128,
+# pyarrow 22, pytest 9). Listed here for documentation; nothing is installed.
+dependencies = ["torch>=2.5", "pyarrow>=15"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
