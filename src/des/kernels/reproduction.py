@@ -36,11 +36,14 @@ def _mutate_sequence(seq: tuple[str, ...], mutable_mask, spectrum, generator):
     idxs = [i for i, m in enumerate(mutable_mask) if m]
     if not idxs:
         return seq
-    pick_idx = int(torch.randint(len(idxs), (1,), generator=generator).item())
+    # device-agnostic (D6): all draws must live on the generator's device, else a CUDA
+    # generator driving CPU tensors raises at the first mutation.
+    dev = generator.device
+    pick_idx = int(torch.randint(len(idxs), (1,), generator=generator, device=dev).item())
     slot = idxs[pick_idx]
     letters = [t for t, _ in spectrum]
-    logq = torch.log(torch.tensor([q for _, q in spectrum]) + 1e-12)
-    gumbel = -torch.log(-torch.log(torch.rand(len(letters), generator=generator) + 1e-12) + 1e-12)
+    logq = torch.log(torch.tensor([q for _, q in spectrum], device=dev) + 1e-12)
+    gumbel = -torch.log(-torch.log(torch.rand(len(letters), generator=generator, device=dev) + 1e-12) + 1e-12)
     pick = int(torch.argmax(logq + gumbel).item())
     new = list(seq); new[slot] = letters[pick]
     return tuple(new)

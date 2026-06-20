@@ -27,6 +27,16 @@ def phase1_antagonism(
     Attacker self-loss = kills / z_eff (with z_eff > 0 guard).
 
     Both directions computed from the same snapshot; applied simultaneously.
+
+    --- v1 SCALABILITY NOTE (read before scaling past the 128x128 smoke batch) ---
+    This kernel builds the DENSE [H,W,K,K] per-cell pairing tensor. Spec D5/section 3.3
+    mandate SPARSE per-cell pairing (gather only count>0 slots, ~5-10 per cell) and
+    explicitly forbid the dense [.,.,K,K] tensor. Dense was a deliberate v1 approximation
+    (plan Task 6): it computes the IDENTICAL correct result (dense just does wasted work on
+    empty slots), so it is bias-free and red-line-clean -- purely a memory/throughput issue.
+    Dense peak ~ H*W*K*K*4 bytes * (a few live tensors): 128x128/K=64 ~ 1 GB (fine), but
+    512x512/K=256 ~ 275 GB (impossible). MUST be rewritten to sparse per-cell pairing before
+    any 512x512 target-dataset run. Tracked as final-review finding C1 (deferred to target scale).
     """
     # --- gather per-slot phenotype arrays via index lookup [H, W, K] ---
     sid_long = strain_id.long()                      # [H, W, K]
