@@ -32,3 +32,28 @@ def test_empty_cells_not_written(tmp_path):
     assert len(tbl) == 1                        # only the one non-empty slot
     assert tbl.iloc[0]["cell_y"] == 0 and tbl.iloc[0]["cell_x"] == 0
     assert tbl.iloc[0]["count"] == 3
+
+def test_close_is_idempotent(tmp_path):
+    t = StrainTable()
+    w = init_bb0(2, 2, 16, DEV, t, fill_per_cell=5)
+    path = str(tmp_path / "run.parquet")
+    rec = Recorder(path, t)
+    rec.dump(0, w)
+    rec.close()
+    rec.close()                                 # second call must be a no-op, not raise
+    tbl = pq.read_table(path).to_pandas()
+    assert len(tbl) == 4
+
+def test_writer_thread_error_surfaces(tmp_path):
+    # a sid not in the table makes the worker's sequence_of raise -> must surface, not deadlock
+    t = StrainTable()
+    w = World(2, 2, 16, DEV)
+    w.strain_id[0, 0, 0] = 999999               # never minted -> KeyError in worker
+    w.count[0, 0, 0] = 1
+    path = str(tmp_path / "run.parquet")
+    rec = Recorder(path, t)
+    rec.dump(0, w)
+    # the failure surfaces on close() (or a later dump()), never silently swallowed
+    import pytest
+    with pytest.raises(RuntimeError, match="writer thread died"):
+        rec.close()
