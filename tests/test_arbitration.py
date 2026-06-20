@@ -98,3 +98,65 @@ def test_kwall_thins_when_over_capacity():
         ratio = total5 / max(total7, 1) if total7 > 0 else float("inf")
         assert 0.85 < ratio < 1.18, \
             f"strain-blind violation: strain5={total5}, strain7={total7}, ratio={ratio:.3f}"
+
+
+def test_kwall_order_independent():
+    """
+    3 strains with EQUAL arrivals (60/60/60) into an empty cell with K=8 (available=8).
+    Heavily oversubscribed: total=180 >> available=8.
+
+    Asserts:
+      (a) every trial seats EXACTLY 8 new individuals (hard cap, exact)
+      (b) all three strains' mean survivors ≈ equal (each ≈ 8/3 ≈ 2.667),
+          pairwise max/min ratio < 1.10
+          (old sequential binom code gives ~1.24 → this is the regression gate)
+      (c) same means hold when arrivals are enumerated in REVERSE order
+          (proves enumeration-order independence directly)
+    """
+    K = 8
+    TRIALS = 3000
+    STRAINS = [1, 2, 3]
+    ARRIVAL = 60  # equal, heavily oversubscribed
+
+    def run_trials(strain_order):
+        accum = {s: 0 for s in STRAINS}
+        for seed in range(TRIALS):
+            sid   = torch.zeros((1, 1, K), dtype=torch.int32)
+            cnt   = torch.zeros((1, 1, K), dtype=torch.int32)
+            birth = torch.zeros((1, 1, K), dtype=torch.int32)
+            # cell is empty: resident_occ=0, available=K=8
+            arr = _arrivals([(0, 0, s, ARRIVAL) for s in strain_order])
+            g = torch.Generator(device=DEV); g.manual_seed(seed)
+            nsid, ncnt, _ = phase3_arbitrate(
+                sid, cnt, arr, K=K, birth_tick=birth, T=1, generator=g, MAXSID=MAXSID
+            )
+            total_seated = int(ncnt[0, 0].sum())
+            # (a) hard cap: exactly available=8 seated every trial
+            assert total_seated == K, \
+                f"seed={seed} order={strain_order}: seated {total_seated} != {K}"
+            for s in STRAINS:
+                m = nsid[0, 0] == s
+                accum[s] += int(ncnt[0, 0][m].sum())
+        return accum
+
+    # Forward order
+    accum_fwd = run_trials(STRAINS)
+    means_fwd = [accum_fwd[s] / TRIALS for s in STRAINS]
+    ratio_fwd = max(means_fwd) / min(means_fwd)
+    # (b) pairwise max/min ratio < 1.10  (old code: ~1.24)
+    assert ratio_fwd < 1.10, \
+        f"order-bias detected (fwd): means={[f'{m:.3f}' for m in means_fwd]}, ratio={ratio_fwd:.4f}"
+
+    # (c) reverse order — means must be unchanged within tolerance
+    accum_rev = run_trials(list(reversed(STRAINS)))
+    means_rev = [accum_rev[s] / TRIALS for s in STRAINS]
+    ratio_rev = max(means_rev) / min(means_rev)
+    assert ratio_rev < 1.10, \
+        f"order-bias detected (rev): means={[f'{m:.3f}' for m in means_rev]}, ratio={ratio_rev:.4f}"
+    # cross-order agreement: each strain's mean should agree within 5% between fwd/rev
+    for s in STRAINS:
+        mf = accum_fwd[s] / TRIALS
+        mr = accum_rev[s] / TRIALS
+        cross_ratio = max(mf, mr) / max(min(mf, mr), 1e-9)
+        assert cross_ratio < 1.05, \
+            f"strain {s}: fwd_mean={mf:.3f} rev_mean={mr:.3f} cross_ratio={cross_ratio:.4f}"

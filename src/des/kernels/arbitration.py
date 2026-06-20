@@ -1,7 +1,6 @@
 # src/des/kernels/arbitration.py
 from __future__ import annotations
 import torch
-from des.kernels.common import binom
 
 
 def phase3_arbitrate(live_sid, live_count, arrivals, K, birth_tick, T, generator, MAXSID):
@@ -31,44 +30,60 @@ def phase3_arbitrate(live_sid, live_count, arrivals, K, birth_tick, T, generator
     resident_occ = live_count.sum(dim=-1)              # [H,W]
     available = (K - resident_occ).clamp(min=0)        # [H,W] remaining individual slots
 
-    # Group coalesced arrivals by cell for sequential thinning.
-    # Build a dict: (y,x) -> list of (idx_into_merged, sid, count)
-    # Then draw sequentially per strain: binom(cnt_i, avail_remaining / total_remaining)
-    # This is the hypergeometric-equivalent sequential draw — exact hard cap, strain-blind
-    # (equal per-capita because ratio avail/total is identical across all strains in the cell
-    # at the start, and updated symmetrically regardless of processing order).
+    # Multivariate-hypergeometric draw via uniform random permutation (torch.randperm).
+    # Pool all arriving individuals (each tagged by its strain index), draw exactly
+    # `available` of them WITHOUT replacement, count per strain.
+    #
+    # Guarantees (three locked constraints):
+    #   1. Equal per-capita / strain-blind: every individual has survival prob
+    #      `available/total` regardless of strain — by symmetry of the uniform permutation.
+    #   2. Hard cap (prob 1): exactly `available` seated, every draw — never exceeds K.
+    #   3. Order-independent: result distribution is symmetric in strains; enumeration
+    #      order cannot bias it.
+    #
+    # Cells are processed in fixed row-major order over contested cells; the same
+    # generator is threaded sequentially, giving bit-reproducible results across runs.
     survived = merged.clone()
     if merged.numel() > 0:
-        # group indices by cell
+        # group indices by cell — fixed sort order: ascending (y,x) = row-major
         cell_indices: dict[tuple[int, int], list[int]] = {}
         for idx in range(len(u_y)):
             key2 = (int(u_y[idx]), int(u_x[idx]))
             cell_indices.setdefault(key2, []).append(idx)
 
-        for (cy, cx), idxs in cell_indices.items():
-            avail_rem = int(available[cy, cx])
-            total_rem = sum(int(merged[i]) for i in idxs)
-            for idx in idxs:
-                cnt_i = int(merged[idx])
-                if cnt_i <= 0 or avail_rem <= 0:
-                    survived[idx] = 0
-                    continue
-                if total_rem <= avail_rem:
-                    # no thinning needed — all fit
-                    s = cnt_i
-                else:
-                    # draw binom(cnt_i, avail_rem / total_rem): equal per-capita, strain-blind
-                    p = torch.tensor(avail_rem / total_rem, dtype=torch.float32, device=dev)
-                    s = int(binom(
-                        torch.tensor([cnt_i], dtype=torch.int32, device=dev),
-                        p.unsqueeze(0),
-                        generator
-                    )[0].item())
-                    # hard clamp: s can't exceed remaining available (guards float rounding)
-                    s = min(s, avail_rem)
-                survived[idx] = s
-                avail_rem -= s
-                total_rem -= cnt_i
+        for (cy, cx), idxs in sorted(cell_indices.items()):
+            avail = int(available[cy, cx])
+            counts = [int(merged[i]) for i in idxs]
+            total = sum(counts)
+
+            # short-circuit: nothing to seat or no thinning needed
+            if total == 0 or avail <= 0:
+                for i in idxs:
+                    survived[i] = 0
+                continue
+            if total <= avail:
+                # all fit — no draw needed
+                continue  # survived already == merged (cloned above)
+
+            # single strain over capacity: seat exactly `avail` of it
+            # (the randperm formula handles this, but short-circuit avoids the randperm call)
+            if len(idxs) == 1:
+                survived[idxs[0]] = avail
+                continue
+
+            # --- multivariate hypergeometric via randperm ---
+            # Build label vector: each individual tagged by its local strain index (0..n-1)
+            counts_t = torch.tensor(counts, dtype=torch.int64, device=dev)
+            labels = torch.repeat_interleave(
+                torch.arange(len(idxs), dtype=torch.int64, device=dev),
+                counts_t
+            )                                                  # length = total
+            perm = torch.randperm(total, generator=generator, device=dev)
+            selected = labels[perm[:avail]]                    # draw exactly `avail`
+            seated = torch.bincount(selected, minlength=len(idxs))  # sums to exactly `avail`
+
+            for local_i, idx in enumerate(idxs):
+                survived[idx] = int(seated[local_i].item())
 
     # --- 3. write back to fixed-K slots ---
     new_sid = live_sid.clone()
