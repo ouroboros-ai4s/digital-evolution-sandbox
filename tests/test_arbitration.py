@@ -76,10 +76,10 @@ def test_kwall_thins_when_over_capacity():
             sid, cnt, arr, K=K, birth_tick=birth, T=1, generator=g, MAXSID=MAXSID
         )
 
-        # (a) total new individuals seated ≤ available (3); residents already there
+        # (a) total new individuals seated == available (3); residents already there
         new_total = int(ncnt[0, 0].sum()) - 5           # subtract resident count
-        assert new_total <= 3, \
-            f"seed={seed}: new seated {new_total} > available 3"
+        assert new_total == 3, \
+            f"seed={seed}: new seated {new_total} != available 3 (under-seating or over-seating)"
 
         # (b) resident strain9 never evicted
         res_mask = nsid[0, 0] == 9
@@ -142,6 +142,8 @@ def test_kwall_order_independent():
     # Forward order
     accum_fwd = run_trials(STRAINS)
     means_fwd = [accum_fwd[s] / TRIALS for s in STRAINS]
+    assert min(means_fwd) > 0, \
+        f"degenerate fwd run: a strain seated zero on average (means={[f'{m:.3f}' for m in means_fwd]})"
     ratio_fwd = max(means_fwd) / min(means_fwd)
     # (b) pairwise max/min ratio < 1.10  (old code: ~1.24)
     assert ratio_fwd < 1.10, \
@@ -150,6 +152,8 @@ def test_kwall_order_independent():
     # (c) reverse order — means must be unchanged within tolerance
     accum_rev = run_trials(list(reversed(STRAINS)))
     means_rev = [accum_rev[s] / TRIALS for s in STRAINS]
+    assert min(means_rev) > 0, \
+        f"degenerate rev run: a strain seated zero on average (means={[f'{m:.3f}' for m in means_rev]})"
     ratio_rev = max(means_rev) / min(means_rev)
     assert ratio_rev < 1.10, \
         f"order-bias detected (rev): means={[f'{m:.3f}' for m in means_rev]}, ratio={ratio_rev:.4f}"
