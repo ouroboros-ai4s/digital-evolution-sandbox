@@ -4,6 +4,10 @@ from des.types import Phenotype, PhaseType, FAMILY_RANK
 
 MU = 0.01          # baseline mutation floor μ (v1 constant; calibration owns it later)
 _DELTA = 0.05      # v1 mutation add-on for P_hotspot
+# v1 placeholder. p_max is an outcome-driven CALIBRATION constant
+# (numerical-round protocol range [0.04, 0.15], init 0.08).
+# Do NOT freeze at this value without running the calibration sweep.
+P_MAX = 0.08
 
 # letter -> family. v1 subset: BB0 locked set + 2 mutation-ladder rungs + N filler.
 ALPHABET = {
@@ -83,10 +87,13 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
                 phase_type = PhaseType.ANTAGONISM
         elif letter in _P:
             p_add, per = _P[letter]
-            p_max = 0.35
-            px_prod *= (1 - min(p_max, MU + p_add))
+            px_prod *= (1 - min(P_MAX, MU + p_add))
             periods.append(per)
-            dominant_p = letter
+            # Pick the P letter with the highest p_add as dominant; break ties by
+            # first occurrence (sequence order). A fully principled multi-P rule
+            # (p_add-weighted spectrum blend) is deferred to the spec, out of v1 scope.
+            if dominant_p is None or p_add > _P[dominant_p][0]:
+                dominant_p = letter
 
     f = 1 - f_prod
     p_leave = 1 - pl_prod

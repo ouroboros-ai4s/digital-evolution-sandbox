@@ -1,7 +1,7 @@
 # tests/test_registry.py
 import pytest
 from des.registry import (ALPHABET, FEATURE_BIT, affinity, phenotype,
-                          BB0_TEMPLATE, MU)
+                          BB0_TEMPLATE, MU, _spectrum_for)
 from des.types import PhaseType
 
 def test_affinity_tiers():
@@ -50,3 +50,54 @@ def test_bb0_template_shape():
     assert BB0_TEMPLATE["layout"][1] == "F4Nr1"
     assert BB0_TEMPLATE["layout"][5] == "BroadSweep"
     assert BB0_TEMPLATE["layout"][7] == "P_base"
+
+
+# ---------------------------------------------------------------------------
+# Fix-wave-1 tests
+# ---------------------------------------------------------------------------
+
+def test_pmax_named_constant():
+    """P_MAX must be promoted to a named module constant at 0.08."""
+    from des import registry
+    assert registry.P_MAX == 0.08
+    # Cap inertness check: P_hotspot contributes p_add=0.05, so
+    # MU + p_add = 0.01 + 0.05 = 0.06 < P_MAX=0.08 → cap never fires in v1.
+    # The compound p_x for a single P_hotspot must equal max(MU, 1-(1-0.06)) = 0.06.
+    p = phenotype(("P_hotspot",))
+    expected_p_x = max(MU, 1 - (1 - min(registry.P_MAX, MU + 0.05)))
+    assert p.p_x == pytest.approx(expected_p_x)
+
+
+def test_dominant_p_is_position_independent():
+    """Two sequences that are the same multiset but differ in slot placement
+    must produce identical spectra — last-seen order must NOT matter (red test)."""
+    # BB0-style 16-letter sequences: locked P_base at index 7, P_hotspot at either
+    # low slot (index 3) or high slot (index 13), everything else N0.
+    # Under last-seen the HIGH-index version always uses P_hotspot (last seen) and
+    # the LOW-index version might use P_base (last seen after P_hotspot).
+    # Under max-p_add both must resolve to P_hotspot (higher p_add=0.05 > 0.0).
+    seq_low = tuple(
+        "P_hotspot" if i == 3
+        else "P_base" if i == 7
+        else "N0"
+        for i in range(16)
+    )
+    seq_high = tuple(
+        "P_base" if i == 7
+        else "P_hotspot" if i == 13
+        else "N0"
+        for i in range(16)
+    )
+    ph_low = phenotype(seq_low)
+    ph_high = phenotype(seq_high)
+    assert ph_low.spectrum == ph_high.spectrum, (
+        f"spectrum differs by slot position: low={ph_low.spectrum} high={ph_high.spectrum}"
+    )
+
+
+def test_dominant_p_picks_higher_padd():
+    """A sequence containing both P_base (p_add=0.0) and P_hotspot (p_add=0.05)
+    must resolve to P_hotspot's spectrum, not P_base's."""
+    p = phenotype(("P_base", "P_hotspot"))
+    assert p.spectrum == _spectrum_for("P_hotspot")
+    assert p.spectrum != _spectrum_for("P_base")
