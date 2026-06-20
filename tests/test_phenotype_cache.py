@@ -33,3 +33,33 @@ def test_phenotype_arrays_indexed_by_id():
     assert arr["f"][EMPTY_ID].item() == 0.0           # empty row zeroed
     assert abs(arr["f"][sid].item() - 0.30) < 1e-6
     assert arr["prey_mask"].dtype == torch.int64
+    # M2: exact key-set guard for downstream kernels
+    assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask", "feature_mask", "period"}
+
+
+DEV = torch.device("cpu")
+
+
+def test_phenotype_arrays_cached_until_mint():
+    t = StrainTable()
+    t.get_or_mint(("F4Nr1",))
+    arr1 = t.phenotype_arrays(DEV)
+    arr2 = t.phenotype_arrays(DEV)
+    # I1: second call with no new mint must return the SAME object (cache hit)
+    assert arr1 is arr2, "phenotype_arrays should be cached when no new strain minted"
+
+    # After minting a new strain the cache must be invalidated
+    sid2 = t.get_or_mint(("BroadSweep",))
+    arr3 = t.phenotype_arrays(DEV)
+    assert arr3 is not arr1, "phenotype_arrays must rebuild after a new strain is minted"
+    # new strain's row must be present
+    assert arr3["f"].shape[0] == len(t) + 1
+    assert arr3["f"][sid2].item() >= 0.0  # value exists (non-sentinel)
+
+
+def test_phenotype_of_empty_raises():
+    import pytest
+    t = StrainTable()
+    # I2: sentinel id 0 must raise KeyError, not AssertionError
+    with pytest.raises(KeyError):
+        t.phenotype_of(0)
