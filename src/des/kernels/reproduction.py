@@ -98,9 +98,14 @@ def phase2_reproduce(world, snap_sid, snap_count, phe, table, birth_tick, T, gen
                         torch.full((H * W,), child_id, dtype=torch.int32, device=dev),
                         mut.flatten())
 
-    # migration out of source (live world)
-    live = snap_count.clone()
+    # migration out (spec PHASE 2 line 136): world[g][s] -= min(a_snap*p_leave, a_snap),
+    # subtracted from the POST-antagonism live world. leave AMOUNT is drawn from the
+    # snapshot (a_snap), but applied to world.count (already = post-antagonism count here).
+    # p_leave departers vanish from the source cell by design: design doc line 115/309 defines
+    # p_leave as the reproduction migration COST (teng kong ming e rang wei), NOT a relocation
+    # to neighbors -- they are not re-added as arrivals anywhere. This is intentional, not a
+    # missing feature.
     leave = binom(snap_count, p_leave, generator)
     leave = torch.minimum(leave, snap_count)
-    live = (live - leave).clamp(min=0)
+    live = (world.count - leave).clamp(min=0)
     return buf, live
