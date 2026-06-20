@@ -46,3 +46,74 @@ def test_no_reproduction_when_not_firing():
                                  phe, t, birth, T=1, generator=g)   # 1%5≠0
     ty, tx, sid, cnt = buf.tensors()
     assert cnt.numel() == 0                     # nobody fired
+
+
+# ── Fix-wave-1 tests ────────────────────────────────────────────────────────
+
+from des.kernels.reproduction import _mutate_sequence
+from des.registry import BB0_TEMPLATE, phenotype as _phenotype
+
+_MUTABLE_SLOTS  = {0, 2, 3, 9, 10, 13}
+_LOCKED_SLOTS   = {1, 5, 7}            # F4Nr1 / BroadSweep / P_base
+
+
+def test_mutation_only_hits_mutable_slots():
+    """Mutated positions must be a strict subset of the 6 design-mutable slots;
+    backbone-locked positions {1,5,7} must NEVER change."""
+    seq = BB0_TEMPLATE["layout"]
+    mask = BB0_TEMPLATE["mutable"]
+    spec = _phenotype(seq).spectrum
+    changed = set()
+    for seed in range(2000):
+        g = torch.Generator(device=torch.device("cpu"))
+        g.manual_seed(seed)
+        mutated = _mutate_sequence(seq, mask, spec, g)
+        for i, (a, b) in enumerate(zip(seq, mutated)):
+            if a != b:
+                changed.add(i)
+    assert changed.issubset(_MUTABLE_SLOTS), (
+        f"mutation hit non-mutable positions: {changed - _MUTABLE_SLOTS}"
+    )
+    assert _LOCKED_SLOTS.isdisjoint(changed), (
+        f"mutation hit backbone-locked positions: {_LOCKED_SLOTS & changed}"
+    )
+
+
+def test_mutation_spreads_across_mutable_slots():
+    """Over many draws, MORE THAN ONE distinct mutable slot must vary.
+    This FAILS under the old idxs[0] code (always position 0)."""
+    seq = BB0_TEMPLATE["layout"]
+    mask = BB0_TEMPLATE["mutable"]
+    spec = _phenotype(seq).spectrum
+    changed = set()
+    for seed in range(2000):
+        g = torch.Generator(device=torch.device("cpu"))
+        g.manual_seed(seed)
+        mutated = _mutate_sequence(seq, mask, spec, g)
+        for i, (a, b) in enumerate(zip(seq, mutated)):
+            if a != b:
+                changed.add(i)
+    assert len(changed) >= 2, (
+        f"mutation confined to positions {changed}; expected spread across ≥2 mutable slots"
+    )
+
+
+def test_mutation_deterministic():
+    """Same seed → identical output; different seed differs at least once."""
+    seq = BB0_TEMPLATE["layout"]
+    mask = BB0_TEMPLATE["mutable"]
+    spec = _phenotype(seq).spectrum
+
+    results_a, results_b, results_c = [], [], []
+    for seed in range(200):
+        g1 = torch.Generator(device=torch.device("cpu")); g1.manual_seed(seed)
+        g2 = torch.Generator(device=torch.device("cpu")); g2.manual_seed(seed)
+        g3 = torch.Generator(device=torch.device("cpu")); g3.manual_seed(seed + 9999)
+        results_a.append(_mutate_sequence(seq, mask, spec, g1))
+        results_b.append(_mutate_sequence(seq, mask, spec, g2))
+        results_c.append(_mutate_sequence(seq, mask, spec, g3))
+
+    # same seed → identical
+    assert results_a == results_b, "same-seed generators produced different sequences"
+    # different seed → at least one difference
+    assert results_a != results_c, "different-seed generators never differed (unexpected)"

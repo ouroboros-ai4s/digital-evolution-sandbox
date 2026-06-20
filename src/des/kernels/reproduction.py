@@ -2,7 +2,7 @@
 from __future__ import annotations
 import torch
 from des.kernels.common import fires_this_tick, binom
-from des.registry import ALPHABET
+from des.registry import ALPHABET, BB0_TEMPLATE
 
 
 class ArrivalBuffer:
@@ -36,7 +36,8 @@ def _mutate_sequence(seq: tuple[str, ...], mutable_mask, spectrum, generator):
     idxs = [i for i, m in enumerate(mutable_mask) if m]
     if not idxs:
         return seq
-    slot = idxs[0]
+    pick_idx = int(torch.randint(len(idxs), (1,), generator=generator).item())
+    slot = idxs[pick_idx]
     letters = [t for t, _ in spectrum]
     logq = torch.log(torch.tensor([q for _, q in spectrum]) + 1e-12)
     gumbel = -torch.log(-torch.log(torch.rand(len(letters), generator=generator) + 1e-12) + 1e-12)
@@ -69,7 +70,7 @@ def phase2_reproduce(world, snap_sid, snap_count, phe, table, birth_tick, T, gen
         if not dirs:
             continue
         seq = table.sequence_of(sid_val)
-        mutable = [True] * len(seq)  # v1: treat all positions mutable for drift (backbone-lock enforced elsewhere in full version)
+        mutable = BB0_TEMPLATE["mutable"]  # backbone-locked positions (F4Nr1@1, BroadSweep@5, P_base@7) never mutate
         # cells where THIS strain fires (any slot)
         slotmask = (snap_sid == sid_val) & fires
         cell_count = (snap_count * slotmask).sum(dim=-1)  # [H,W] count of this strain in firing slots
