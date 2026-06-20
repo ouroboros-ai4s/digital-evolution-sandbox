@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.superpowers/
+*.parquet
+.pytest_cache/
+src/des.egg-info/
+*.egg-info/
