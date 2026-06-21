@@ -310,7 +310,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 用既有 `scripts/run_batch.py --phase-probe` 在世界填满阶段实测仲裁耗时,确认从 ~1324ms 降到与 reproduction(~123ms)同量级或更低;清理一次性诊断脚本。
 
 **Files:**
-- (无代码改动;运行验证 + 删除 untracked 诊断脚本 `scripts/diag_recorder.py`)
+- (无代码改动;运行验证。诊断脚本 `scripts/diag_recorder.py` 已保留入库,本任务不删除)
 
 **Interfaces:**
 - Consumes: `scripts/run_batch.py` 现有 `--phase-probe N`(打印 `[phase-probe N ticks] anta X | repro Y | arb Z ms/tick`)。
@@ -324,12 +324,12 @@ Expected: 打印 `[phase-probe 240 ticks] anta ~24 | repro ~123 | arb Z ms/tick`
 
 判据(报数不判决):仅记录 anta/repro/arb 三数及 arb 相对 swap 前(1323.9ms)的下降倍数。若 arb 未降到 repro 同量级,**不要**自行加码改对抗或其它,停下把数字交用户决定下一步。
 
-- [ ] **Step 3: 删除一次性诊断脚本**
+- [ ] **Step 3: 确认诊断脚本已入库**
 
-`scripts/diag_recorder.py` 是诊断期一次性产物(untracked),可复用的 probe 已在 `run_batch.py --phase-probe`。删除以保持工作树干净。
+`scripts/diag_recorder.py`(诊断期 3-pass profiler)用户已决定**保留为常驻诊断工具**(已 commit 入库)。本步无需删除;若工作树仍有未提交改动,确认其已 commit。
 
-Run: `cd /g/OUROBOROS-AI4S/digital-evolution-sandbox && rm -f scripts/diag_recorder.py && git status --short`
-Expected: `diag_recorder.py` 不再出现在 untracked 列表。
+Run: `cd /g/OUROBOROS-AI4S/digital-evolution-sandbox && git status --short`
+Expected: `diag_recorder.py` 不出现在 untracked/modified 列表(已入库)。
 
 - [ ] **Step 4: 确认工作树干净 + 全套件最终绿**
 
