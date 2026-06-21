@@ -1,5 +1,7 @@
 # 阵营扩张混战重构 — Design Spec
 
+> **⚠ SUPERSEDED (2026-06-21).** 本文已被 `2026-06-21-faction-and-vectorization-redesign.md` 取代 —— faction 重构 + 引擎热路径全向量化(P1/P2/P3)合并为一份 spec(同样两个 kernel 文件要一起重写,分开做会改两遍)。本文 faction 部分原样并入新文 §2/§4,保留作历史存档,**不再维护**。
+
 **日期:** 2026-06-21
 **项目:** Digital Evolution Sandbox(数字进化沙盒,512×512 红皇后混战,采集无偏时序数据集供 selop 反演)
 **类型:** 设计修正(伤筋动骨)——纠正三个根本性实现偏差 + 一处 meta 地基修订
