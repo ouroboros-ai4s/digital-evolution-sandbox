@@ -7,6 +7,7 @@ from des.kernels.common import z_eff, fires_this_tick
 def phase1_antagonism(
     strain_id: torch.Tensor,
     count: torch.Tensor,
+    faction: torch.Tensor,
     phe: dict[str, torch.Tensor],
     birth_tick: torch.Tensor,
     T: int,
@@ -16,11 +17,11 @@ def phase1_antagonism(
     """PHASE1 antagonism kernel.
 
     For every cell, every attacker slot i attacks every prey slot j where:
-      - i != j (different slot index — not structural, but G10 enforces strain identity below)
+      - i != j (different slot index — not structural, but faction gate enforces below)
       - both have count > 0
       - attacker fires this tick (fires_this_tick)
       - (prey_mask[i] & feature_mask[j]) != 0  (family-based targeting only)
-      - strain_id[i] != strain_id[j]           (G10: same-strain immunity)
+      - faction[i] != faction[j]               (same-faction immunity)
 
     kills from i on j = round(count[i] * z_eff(z_raw[i], z_max)), proportionally
     capped so total kills on j never exceed count[j].
@@ -55,15 +56,18 @@ def phase1_antagonism(
     fj = feat_m.unsqueeze(-2)                        # [H, W, 1, K]
     hit = (pi & fj) != 0                             # [H, W, K, K] bool
 
-    # G10: same-strain immunity — compare strain identity, not strength
-    sid_i = sid_long.unsqueeze(-1)                   # [H, W, K, 1]
-    sid_j = sid_long.unsqueeze(-2)                   # [H, W, 1, K]
-    diff_strain = sid_i != sid_j                     # [H, W, K, K] bool
+    # faction gate: fight iff attacker and prey are on DIFFERENT factions.
+    # faction is a SLOT-level state, NOT gathered through sid (dual-orthogonal identity:
+    # phe[sid] never sees faction). Same-faction (any sid) is immune — exactly skip the kill.
+    fac_slot = faction.long()                        # [H, W, K]
+    fac_i = fac_slot.unsqueeze(-1)                    # [H, W, K, 1]
+    fac_j = fac_slot.unsqueeze(-2)                    # [H, W, 1, K]
+    diff_faction = fac_i != fac_j                     # [H, W, K, K] bool
 
     fires_i = fires.unsqueeze(-1)                    # [H, W, K, 1]  attacker fires
     alive_j = alive.unsqueeze(-2)                    # [H, W, 1, K]  prey alive
 
-    valid = hit & diff_strain & fires_i & alive_j    # [H, W, K, K] bool
+    valid = hit & diff_faction & fires_i & alive_j    # [H, W, K, K] bool
 
     # --- raw kill from attacker i onto prey j ---
     a_i = count.unsqueeze(-1).float()               # [H, W, K, 1]
