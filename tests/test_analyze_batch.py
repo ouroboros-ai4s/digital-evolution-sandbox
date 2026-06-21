@@ -1,6 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import pandas as pd
+import json
 import analyze_batch as ab
 
 def _toy(path, rows):
@@ -217,14 +218,18 @@ def test_established_flux_excludes_transient_subeps_strains(tmp_path):
     )
 
 
-def test_main_skips_empty_parquet_gracefully(tmp_path, capsys):
+def test_main_skips_empty_parquet_gracefully(tmp_path, capsys, monkeypatch):
     """FIX2: main() must skip (not crash on) a zero-row parquet.
 
-    Build an empty DataFrame with the correct 6-col typed schema and write it.
-    Then assert that loading it returns an empty DataFrame — confirming the
-    df.empty guard in main() would fire and skip it.
+    Creates a temp runs-dir with BOTH an empty parquet (matching --glob)
+    and a non-empty parquet. Calls main() with the temp dir; verifies:
+    (a) main() does NOT raise on the empty file,
+    (b) stdout contains skip note for empty parquet,
+    (c) main() processed the non-empty seed (report + JSON written).
     """
     import numpy as np
+
+    # Create empty parquet with correct 6-col schema
     empty_df = pd.DataFrame({
         "tick":   pd.array([], dtype="int64"),
         "cell_x": pd.array([], dtype="int64"),
@@ -233,9 +238,36 @@ def test_main_skips_empty_parquet_gracefully(tmp_path, capsys):
         "faction": pd.array([], dtype="int8"),
         "count":  pd.array([], dtype="int64"),
     })
-    p = tmp_path / "empty.parquet"
-    empty_df.to_parquet(str(p))
-    loaded = ab.load(str(p))
-    assert loaded.empty, "load() of empty parquet must return empty DataFrame"
-    # Verify the guard condition used in main() fires correctly
-    assert loaded.empty is True
+    empty_p = tmp_path / "run-seed0.parquet"
+    empty_df.to_parquet(str(empty_p))
+
+    # Create non-empty parquet with 2 rows
+    non_empty_p = tmp_path / "run-seed1.parquet"
+    _toy(non_empty_p, [(1, 0, 0, "S0", 0, 5), (1, 1, 1, "S0", 1, 5)])
+
+    # Drive main() via argv
+    orig_argv = sys.argv
+    try:
+        sys.argv = ["analyze_batch", "--runs-dir", str(tmp_path), "--glob", "*-seed*.parquet", "--n-cells", "4"]
+        ab.main()
+    finally:
+        sys.argv = orig_argv
+
+    # Capture stdout
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # Assert: (a) main() did not raise (implicit; we reached here)
+    # Assert: (b) stdout contains skip note for empty parquet
+    assert "skip" in stdout.lower() and "empty" in stdout.lower(), (
+        f"stdout must contain skip note for empty parquet. Got:\n{stdout}"
+    )
+
+    # Assert: (c) main() processed the non-empty seed
+    # Check for report header and seed number in output
+    assert "FIRST-BATCH ANALYSIS REPORT" in stdout, (
+        f"stdout must contain report header. Got:\n{stdout}"
+    )
+    assert "seed 1" in stdout, (
+        f"stdout must show 'seed 1' (non-empty seed). Got:\n{stdout}"
+    )
