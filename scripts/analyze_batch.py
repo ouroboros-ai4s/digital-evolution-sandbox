@@ -218,6 +218,11 @@ def _last(d):
     return d[max(d)]
 
 
+def _fmt(v, spec):
+    """Format v with spec, or return 'n/a' if v is None."""
+    return format(v, spec) if v is not None else "n/a"
+
+
 def render_text(per_seed_list: list, cross: dict) -> str:
     L = []
     L.append("=" * 70)
@@ -238,7 +243,7 @@ def render_text(per_seed_list: list, cross: dict) -> str:
         L.append(f"  winner_faction: {m['winner_faction']}   "
                  f"faction_share last: {m['faction_share'].get(max(m['faction_share'])) if m['faction_share'] else {}}")
         L.append(f"  distinct_strains last: {_last(m['distinct_strains'])}   "
-                 f"N2 last: {_last(m['n2']):.2f}   d_max last: {_last(m['d_max']):.3f}")
+                 f"N2 last: {_fmt(_last(m['n2']), '.2f')}   d_max last: {_fmt(_last(m['d_max']), '.3f')}")
         L.append(f"  total strains ever seen: {len(m['new_strain_first_seen'])}   "
                  f"leader_changes: {m['leader_changes']}")
         L.append(f"  established_flux last: {_last(m['established_flux'])}")

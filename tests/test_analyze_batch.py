@@ -136,6 +136,43 @@ def test_render_text_no_verdicts_and_has_proxy_label(tmp_path):
     # proxy must be labeled (spec §0.2)
     assert "PROXY" in up
 
+def test_render_text_handles_empty_seed_without_crashing(tmp_path):
+    """Test render_text with empty DataFrame (zero ticks, all metrics dicts empty).
+    Simulates a seed with zero parquet rows. _last() returns None for empty dicts,
+    which would cause None:.2f format crash without proper handling.
+    Build minimal per_seed dict directly to isolate render_text behavior."""
+    ps = {
+        "seed": 0,
+        "ticks": [],
+        "total_count": {},
+        "extinction_tick": None,
+        "distinct_factions": {},
+        "fixation_tick": None,
+        "occupied_cells": {},
+        "first_cross_faction_tick": None,
+        "fill_tick": None,
+        "faction_occupied": {},
+        "faction_share": {},
+        "winner_faction": None,
+        "distinct_strains": {},
+        "n2": {},
+        "new_strain_first_seen": {},
+        "d_max": {},
+        "established_flux": {},
+        "leader_changes": 0,
+        "seed_tick": None,
+        "seed_distinct_strains": 0,
+        "seed_distinct_factions": 0,
+        "net_decrease_proxy": {},
+        "strain_faction_xtab": {},
+    }
+    cross = ab.cross_seed_metrics([ps])
+    txt = ab.render_text([ps], cross)   # must NOT raise (None:.2f bug)
+    assert isinstance(txt, str) and len(txt) > 0
+    # report-only discipline: no PASS/FAIL tokens
+    up = txt.upper()
+    assert "PASS" not in up and "FAIL" not in up
+
 def test_dump_json_roundtrips(tmp_path):
     rows = [(1, 0, 0, "S0", 0, 10)]
     p = tmp_path / "j.parquet"; _toy(p, rows)
