@@ -44,7 +44,7 @@ def phase1_antagonism(
     z_raw = phe["z_raw"][sid_long]                   # [H, W, K]
     prey_m = phe["prey_mask"][sid_long]              # [H, W, K]  int64 bitmask
     feat_m = phe["feature_mask"][sid_long]           # [H, W, K]  int64 bitmask
-    period = phe["period"][sid_long]                 # [H, W, K]
+    period = phe["anta_period"][sid_long]            # [H, W, K]  Z-primitive firing clock
 
     alive = count > 0                                # [H, W, K]
     fires = fires_this_tick(birth_tick, period, T) & alive  # [H, W, K]

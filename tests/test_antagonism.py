@@ -87,3 +87,25 @@ def test_cross_faction_fights_even_when_same_strain():
     g = torch.Generator(device=DEV); g.manual_seed(0)
     out = phase1_antagonism(sid, cnt, fac, phe, birth, T=5, z_max=8.0, generator=g)
     assert out[0, 0, 0].item() < 100 and out[0, 0, 1].item() < 100   # both took losses
+
+
+def test_antagonism_fires_on_anta_period_not_min_period():
+    # ("BroadSweep","P_base"): BroadSweep period 5 (Z), P_base period 1 (P).
+    # OLD min-period = 1 -> would fire every tick. NEW anta_period = 5 -> only T%5==0.
+    t = StrainTable()
+    pred = t.get_or_mint(("BroadSweep", "P_base"))
+    prey = t.get_or_mint(("F4Nr4",))
+    phe = t.phenotype_arrays(DEV)
+    sid = torch.zeros((1, 1, 4), dtype=torch.int32)
+    cnt = torch.zeros((1, 1, 4), dtype=torch.int32)
+    fac = torch.zeros((1, 1, 4), dtype=torch.int8)
+    sid[0, 0, 0] = pred; cnt[0, 0, 0] = 100; fac[0, 0, 0] = 0
+    sid[0, 0, 1] = prey; cnt[0, 0, 1] = 100; fac[0, 0, 1] = 1
+    birth = torch.zeros((1, 1, 4), dtype=torch.int32)
+    g = torch.Generator(device=DEV); g.manual_seed(0)
+    # T=3 is NOT a multiple of anta_period 5 -> attacker does not fire -> no kills
+    out3 = phase1_antagonism(sid, cnt, fac, phe, birth, T=3, z_max=8.0, generator=g)
+    assert out3[0, 0, 1].item() == 100, "fired on a non-anta-period tick (still using min period?)"
+    # T=5 IS a multiple -> fires -> prey takes losses
+    out5 = phase1_antagonism(sid, cnt, fac, phe, birth, T=5, z_max=8.0, generator=g)
+    assert out5[0, 0, 1].item() < 100, "did not fire on anta_period tick"
