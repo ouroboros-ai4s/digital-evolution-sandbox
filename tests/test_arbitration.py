@@ -1,17 +1,21 @@
 # tests/test_arbitration.py
 import torch
-from des.kernels.arbitration import phase3_arbitrate
+from des.kernels.arbitration import phase3_arbitrate_vec
 from des.kernels.reproduction import ArrivalBuffer
 
 DEV = torch.device("cpu")
 MAXSID = 64
+NFAC = 4
 
 
 def _arrivals(events):
+    """events: list of (y, x, sid, cnt) — all faction 0 (single-faction K-wall tests)."""
     buf = ArrivalBuffer(DEV)
     for (y, x, sid, cnt) in events:
         buf.add(torch.tensor([y]), torch.tensor([x]),
-                torch.tensor([sid], dtype=torch.int32), torch.tensor([cnt], dtype=torch.int32))
+                torch.tensor([sid], dtype=torch.int32),
+                torch.tensor([cnt], dtype=torch.int32),
+                torch.tensor([0], dtype=torch.int8))
     return buf.tensors()
 
 
@@ -21,12 +25,13 @@ def test_arrivals_seat_into_empty_cell():
     K = 64
     sid   = torch.zeros((1, 1, K), dtype=torch.int32)
     cnt   = torch.zeros((1, 1, K), dtype=torch.int32)
+    fac   = torch.zeros((1, 1, K), dtype=torch.int8)
     birth = torch.zeros((1, 1, K), dtype=torch.int32)
     arr = _arrivals([(0, 0, 5, 10), (0, 0, 7, 20)])
     g = torch.Generator(device=DEV); g.manual_seed(0)
-    nsid, ncnt, nbirth = phase3_arbitrate(
-        sid, cnt, arr, K=K, birth_tick=birth, T=3, generator=g, MAXSID=MAXSID
-    )
+    nsid, ncnt, nfac, nbirth = phase3_arbitrate_vec(
+        sid, cnt, fac, arr, K=K, birth_tick=birth, T=3, generator=g,
+        MAXSID=MAXSID, NFAC=NFAC)
     seated = {int(nsid[0, 0, k]): int(ncnt[0, 0, k])
               for k in range(K) if ncnt[0, 0, k] > 0}
     assert seated == {5: 10, 7: 20}
@@ -42,12 +47,13 @@ def test_convergent_arrivals_merge_same_strain():
     K = 64
     sid   = torch.zeros((1, 1, K), dtype=torch.int32)
     cnt   = torch.zeros((1, 1, K), dtype=torch.int32)
+    fac   = torch.zeros((1, 1, K), dtype=torch.int8)
     birth = torch.zeros((1, 1, K), dtype=torch.int32)
     arr = _arrivals([(0, 0, 5, 10), (0, 0, 5, 15)])    # same strain twice
     g = torch.Generator(device=DEV); g.manual_seed(0)
-    nsid, ncnt, _ = phase3_arbitrate(
-        sid, cnt, arr, K=K, birth_tick=birth, T=1, generator=g, MAXSID=MAXSID
-    )
+    nsid, ncnt, nfac, _ = phase3_arbitrate_vec(
+        sid, cnt, fac, arr, K=K, birth_tick=birth, T=1, generator=g,
+        MAXSID=MAXSID, NFAC=NFAC)
     seated = {int(nsid[0, 0, k]): int(ncnt[0, 0, k])
               for k in range(K) if ncnt[0, 0, k] > 0}
     assert seated == {5: 25}                            # merged into one slot
@@ -67,14 +73,15 @@ def test_kwall_thins_when_over_capacity():
     for seed in range(TRIALS):
         sid   = torch.zeros((1, 1, K), dtype=torch.int32)
         cnt   = torch.zeros((1, 1, K), dtype=torch.int32)
+        fac   = torch.zeros((1, 1, K), dtype=torch.int8)
         birth = torch.zeros((1, 1, K), dtype=torch.int32)
         cnt[0, 0, 0] = 5
         sid[0, 0, 0] = 9                                # resident: 5 individuals of strain9
         arr = _arrivals([(0, 0, 5, 100), (0, 0, 7, 100)])  # equal arrivals, total 200
         g = torch.Generator(device=DEV); g.manual_seed(seed)
-        nsid, ncnt, _ = phase3_arbitrate(
-            sid, cnt, arr, K=K, birth_tick=birth, T=1, generator=g, MAXSID=MAXSID
-        )
+        nsid, ncnt, nfac, _ = phase3_arbitrate_vec(
+            sid, cnt, fac, arr, K=K, birth_tick=birth, T=1, generator=g,
+            MAXSID=MAXSID, NFAC=NFAC)
 
         # (a) total new individuals seated == available (3); residents already there
         new_total = int(ncnt[0, 0].sum()) - 5           # subtract resident count
@@ -123,13 +130,14 @@ def test_kwall_order_independent():
         for seed in range(TRIALS):
             sid   = torch.zeros((1, 1, K), dtype=torch.int32)
             cnt   = torch.zeros((1, 1, K), dtype=torch.int32)
+            fac   = torch.zeros((1, 1, K), dtype=torch.int8)
             birth = torch.zeros((1, 1, K), dtype=torch.int32)
             # cell is empty: resident_occ=0, available=K=8
             arr = _arrivals([(0, 0, s, ARRIVAL) for s in strain_order])
             g = torch.Generator(device=DEV); g.manual_seed(seed)
-            nsid, ncnt, _ = phase3_arbitrate(
-                sid, cnt, arr, K=K, birth_tick=birth, T=1, generator=g, MAXSID=MAXSID
-            )
+            nsid, ncnt, nfac, _ = phase3_arbitrate_vec(
+                sid, cnt, fac, arr, K=K, birth_tick=birth, T=1, generator=g,
+                MAXSID=MAXSID, NFAC=NFAC)
             total_seated = int(ncnt[0, 0].sum())
             # (a) hard cap: exactly available=8 seated every trial
             assert total_seated == K, \
