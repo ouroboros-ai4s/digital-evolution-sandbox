@@ -206,3 +206,98 @@ def cross_seed_metrics(per_seed_list: list, steady_min_ticks: int = 200) -> dict
             "win_ci_note": win_ci_note, "d4_symmetry_spread": d4_symmetry_spread,
             "gate0_short_run": gate0_short_run,
             "timeline_reconciliation": timeline_reconciliation}
+
+
+import argparse, glob, json, os, re, datetime
+
+
+def _last(d):
+    """last value of a {tick: val} dict by tick order, or None."""
+    if not d:
+        return None
+    return d[max(d)]
+
+
+def render_text(per_seed_list: list, cross: dict) -> str:
+    L = []
+    L.append("=" * 70)
+    L.append("FIRST-BATCH ANALYSIS REPORT (numbers only — human makes the verdict)")
+    L.append("=" * 70)
+    for m in per_seed_list:
+        L.append(f"\n--- seed {m.get('seed')} ---")
+        ticks = m.get("ticks") or []
+        span = f"{ticks[0]}..{ticks[-1]}" if ticks else "(empty)"
+        L.append(f"  ticks recorded: {span}  ({len(ticks)} ticks)")
+        L.append(f"  total_count last: {_last(m['total_count'])}   "
+                 f"extinction_tick: {m['extinction_tick']}")
+        L.append(f"  distinct_factions last: {_last(m['distinct_factions'])}   "
+                 f"fixation_tick: {m['fixation_tick']}")
+        L.append(f"  occupied_cells last: {_last(m['occupied_cells'])}   "
+                 f"first_cross_faction_tick: {m['first_cross_faction_tick']}   "
+                 f"fill_tick: {m['fill_tick']}")
+        L.append(f"  winner_faction: {m['winner_faction']}   "
+                 f"faction_share last: {m['faction_share'].get(max(m['faction_share'])) if m['faction_share'] else {}}")
+        L.append(f"  distinct_strains last: {_last(m['distinct_strains'])}   "
+                 f"N2 last: {_last(m['n2']):.2f}   d_max last: {_last(m['d_max']):.3f}")
+        L.append(f"  total strains ever seen: {len(m['new_strain_first_seen'])}   "
+                 f"leader_changes: {m['leader_changes']}")
+        L.append(f"  established_flux last: {_last(m['established_flux'])}")
+        L.append(f"  net_decrease_proxy last: {_last(m['net_decrease_proxy'])}  "
+                 f"[PROXY — NOT kills; conflates K-wall+p_leave+arbitration]")
+        L.append(f"  seeding: tick {m['seed_tick']} -> "
+                 f"{m['seed_distinct_strains']} strain(s), {m['seed_distinct_factions']} faction(s) "
+                 f"(expect 1 strain / 4 factions)")
+        L.append(f"  strain×faction xtab (strains under ≥2 factions, last tick): "
+                 f"{m['strain_faction_xtab']}")
+    L.append("\n" + "=" * 70)
+    L.append("CROSS-SEED AGGREGATE")
+    L.append("=" * 70)
+    L.append(f"  n_seeds: {cross['n_seeds']}   winners: {cross['winners']}")
+    ci = cross["win_ci_note"]
+    L.append(f"  win counts by faction: {ci['per_faction_count']}")
+    L.append(f"  symmetric expectation: {ci['expected_share']} share; "
+             f"2σ band on win-count = [{ci['binom_2sigma_lo']:.2f}, {ci['binom_2sigma_hi']:.2f}] "
+             f"(deviation = possible sneak-goods leak; user judges)")
+    L.append(f"  GATE0: steady_window={cross['gate0_short_run']['steady_window_ticks']} "
+             f"required={cross['gate0_short_run']['required']} — "
+             f"{cross['gate0_short_run']['note']}")
+    tr = cross["timeline_reconciliation"]
+    L.append(f"  timeline: per-seed {tr['per_seed']}")
+    L.append(f"            spec expects meet~{tr['spec_meet']}/fill~{tr['spec_fill']}; "
+             f"design(period-unfactored) meet~{tr['design_meet']}/fill~{tr['design_fill']} "
+             f"— compare to observed above")
+    return "\n".join(L)
+
+
+def dump_json(report: dict, path: str) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, default=str)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Report-only first-batch analysis (no verdicts).")
+    ap.add_argument("--runs-dir", default=os.path.join("data", "runs"))
+    ap.add_argument("--glob", default="*-seed*.parquet")
+    ap.add_argument("--n-cells", type=int, default=128 * 128)
+    args = ap.parse_args()
+
+    paths = sorted(glob.glob(os.path.join(args.runs_dir, args.glob)))
+    if not paths:
+        print(f"no parquets matched {args.glob} in {args.runs_dir}")
+        return
+    per_seed = []
+    for p in paths:
+        m = re.search(r"seed(\d+)", os.path.basename(p))
+        ms = per_seed_metrics(load(p), n_cells=args.n_cells)
+        ms["seed"] = int(m.group(1)) if m else None
+        per_seed.append(ms)
+    cross = cross_seed_metrics(per_seed)
+    print(render_text(per_seed, cross))
+    tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = os.path.join(args.runs_dir, f"analysis-{tag}.json")
+    dump_json({"per_seed": per_seed, "cross_seed": cross}, out)
+    print(f"\n-> wrote {out}")
+
+
+if __name__ == "__main__":
+    main()

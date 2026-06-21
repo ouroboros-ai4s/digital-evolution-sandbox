@@ -119,3 +119,29 @@ def test_cross_seed_winrate_and_flags(tmp_path):
     assert c["gate0_short_run"]["steady_window_ticks"] <= 15
     assert "200" in str(c["gate0_short_run"]["required"]) or c["gate0_short_run"]["required"] == 200
     assert c["timeline_reconciliation"]["spec_meet"] == 160
+
+
+import json
+
+def test_render_text_no_verdicts_and_has_proxy_label(tmp_path):
+    rows = [(1, 0, 0, "S0", 0, 10), (1, 1, 1, "S0", 1, 10)]
+    p = tmp_path / "r.parquet"; df = _toy(p, rows)
+    ps = ab.per_seed_metrics(ab.load(str(p)), n_cells=4)
+    cross = ab.cross_seed_metrics([ps])
+    txt = ab.render_text([ps], cross)
+    assert isinstance(txt, str) and len(txt) > 0
+    # report-only discipline: no PASS/FAIL tokens anywhere (spec §0.1)
+    up = txt.upper()
+    assert "PASS" not in up and "FAIL" not in up
+    # proxy must be labeled (spec §0.2)
+    assert "PROXY" in up
+
+def test_dump_json_roundtrips(tmp_path):
+    rows = [(1, 0, 0, "S0", 0, 10)]
+    p = tmp_path / "j.parquet"; _toy(p, rows)
+    ps = ab.per_seed_metrics(ab.load(str(p)), n_cells=4)
+    cross = ab.cross_seed_metrics([ps])
+    out = tmp_path / "a.json"
+    ab.dump_json({"per_seed": [ps], "cross_seed": cross}, str(out))
+    loaded = json.loads(out.read_text())
+    assert "per_seed" in loaded and "cross_seed" in loaded
