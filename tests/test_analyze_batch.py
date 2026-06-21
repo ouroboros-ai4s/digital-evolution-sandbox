@@ -41,3 +41,44 @@ def test_survival_spatial_known_answers(tmp_path):
     assert m["fill_tick"] == 1            # 4 occupied cells == n_cells at tick 1
     assert m["winner_faction"] == 0
     assert abs(m["faction_share"][1][0] - 0.25) < 1e-9
+
+
+def test_diversity_known_answers(tmp_path):
+    # tick1: 2 strains equal freq (10 each) -> N2 = 1/(0.5^2+0.5^2) = 2.0
+    # tick2: A=30 B=10 -> freqs .75/.25 -> N2 = 1/(.5625+.0625)=1.6
+    # new strain C first seen tick2. leader: A both ticks -> 0 changes.
+    rows = [
+        (1, 0, 0, "A", 0, 10), (1, 1, 0, "B", 0, 10),
+        (2, 0, 0, "A", 0, 30), (2, 1, 0, "B", 0, 10), (2, 2, 0, "C", 0, 0),
+    ]
+    p = tmp_path / "d.parquet"; _toy(p, rows)
+    m = ab.diversity_metrics(ab.load(str(p)))
+    assert m["distinct_strains"][1] == 2
+    assert abs(m["n2"][1] - 2.0) < 1e-9
+    assert abs(m["n2"][2] - 1.6) < 1e-9
+    assert m["new_strain_first_seen"]["A"] == 1
+    assert m["new_strain_first_seen"]["C"] == 2   # count 0 still records first-seen row
+    assert abs(m["d_max"][2] - 0.75) < 1e-9
+    assert m["leader_changes"] == 0
+
+def test_proxy_and_seeding_known_answers(tmp_path):
+    # seed tick = 1: 1 strain, 4 factions. tick2 cell(0,0) f0 drops 10->4 = -6 proxy.
+    rows = [
+        (1, 0, 0, "S0", 0, 10), (1, 1, 0, "S0", 1, 10),
+        (1, 0, 1, "S0", 2, 10), (1, 1, 1, "S0", 3, 10),
+        (2, 0, 0, "S0", 0, 4), (2, 1, 0, "S0", 1, 10),
+        (2, 0, 1, "S0", 2, 10), (2, 1, 1, "S0", 3, 10),
+    ]
+    p = tmp_path / "s2.parquet"; _toy(p, rows)
+    m = ab.proxy_and_seeding_metrics(ab.load(str(p)))
+    assert m["seed_tick"] == 1
+    assert m["seed_distinct_strains"] == 1
+    assert m["seed_distinct_factions"] == 4
+    assert m["net_decrease_proxy"][2] == 6     # only the -6 drop, summed as magnitude
+
+def test_per_seed_merges_all(tmp_path):
+    rows = [(1, 0, 0, "S0", 0, 10), (1, 1, 1, "S0", 1, 10)]
+    p = tmp_path / "m.parquet"; _toy(p, rows)
+    m = ab.per_seed_metrics(ab.load(str(p)), n_cells=4)
+    # has keys from all three metric groups
+    assert "fixation_tick" in m and "n2" in m and "seed_distinct_factions" in m

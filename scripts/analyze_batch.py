@@ -59,3 +59,89 @@ def survival_spatial_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict
         "fill_tick": fill_tick, "faction_occupied": faction_occupied,
         "faction_share": faction_share, "winner_faction": winner_faction,
     }
+
+
+def diversity_metrics(df: pd.DataFrame, eps: float = 0.01, lag: int = 5) -> dict:
+    ticks = sorted(int(t) for t in df["tick"].unique())
+    by_strain = df.groupby(["tick", "strain"])["count"].sum()
+    distinct_strains, n2, d_max = {}, {}, {}
+    freqs = {}  # tick -> {strain: freq}
+    for t in ticks:
+        s = by_strain.loc[t]
+        s = s[s > 0]
+        tot = float(s.sum()) or 1.0
+        f = (s / tot)
+        freqs[t] = {str(k): float(v) for k, v in f.items()}
+        distinct_strains[t] = int((s > 0).sum())
+        n2[t] = float(1.0 / (f ** 2).sum()) if len(f) else 0.0
+        d_max[t] = float(f.max()) if len(f) else 0.0
+
+    # first-seen tick per strain (any row, including count 0 — records emergence)
+    first = df.groupby("strain")["tick"].min()
+    new_strain_first_seen = {str(k): int(v) for k, v in first.items()}
+
+    # established-set flux = 1/2 sum |p_s(t) - p_s(t-lag)| over union of strains
+    established_flux = {}
+    for i, t in enumerate(ticks):
+        if i - lag < 0:
+            continue
+        t0 = ticks[i - lag]
+        keys = set(freqs[t]) | set(freqs[t0])
+        flux = 0.5 * sum(abs(freqs[t].get(k, 0.0) - freqs[t0].get(k, 0.0)) for k in keys)
+        established_flux[t] = float(flux)
+
+    # leader changes = # of times the argmax strain switches across ticks
+    leaders = []
+    for t in ticks:
+        if freqs[t]:
+            leaders.append(max(freqs[t], key=freqs[t].get))
+    leader_changes = sum(1 for a, b in zip(leaders, leaders[1:]) if a != b)
+
+    return {"distinct_strains": distinct_strains, "n2": n2,
+            "new_strain_first_seen": new_strain_first_seen, "d_max": d_max,
+            "established_flux": established_flux, "leader_changes": leader_changes}
+
+
+def proxy_and_seeding_metrics(df: pd.DataFrame) -> dict:
+    ticks = sorted(int(t) for t in df["tick"].unique())
+    seed_tick = ticks[0] if ticks else None
+    seed_df = df[df["tick"] == seed_tick] if seed_tick is not None else df.iloc[:0]
+    seed_live = seed_df[seed_df["count"] > 0]
+    seed_distinct_strains = int(seed_live["strain"].nunique())
+    seed_distinct_factions = int(seed_live["faction"].nunique())
+
+    # net-decrease PROXY: per (cell,faction,strain) count drop vs previous tick.
+    # NOT kills -- conflates K-wall evaporation + p_leave + arbitration (spec §0.2).
+    key = ["cell_x", "cell_y", "faction", "strain"]
+    piv = df.pivot_table(index=key, columns="tick", values="count",
+                         aggfunc="sum", fill_value=0)
+    net_decrease_proxy = {}
+    cols = list(piv.columns)
+    for i, t in enumerate(cols):
+        if i == 0:
+            continue
+        delta = piv[t] - piv[cols[i - 1]]
+        net_decrease_proxy[int(t)] = int(-delta[delta < 0].sum())
+
+    # strain x faction cross-tab at last tick, for strains under >=2 factions
+    last = ticks[-1] if ticks else None
+    xtab = {}
+    if last is not None:
+        ld = df[(df["tick"] == last) & (df["count"] > 0)]
+        g = ld.groupby(["strain", "faction"])["count"].sum()
+        for strain in ld["strain"].unique():
+            row = g.loc[strain] if strain in g.index.get_level_values(0) else None
+            if row is not None and row.index.nunique() >= 2:
+                xtab[str(strain)] = {int(f): int(v) for f, v in row.items()}
+
+    return {"seed_tick": seed_tick, "seed_distinct_strains": seed_distinct_strains,
+            "seed_distinct_factions": seed_distinct_factions,
+            "net_decrease_proxy": net_decrease_proxy, "strain_faction_xtab": xtab}
+
+
+def per_seed_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict:
+    m = {"seed": None}
+    m.update(survival_spatial_metrics(df, n_cells=n_cells))
+    m.update(diversity_metrics(df))
+    m.update(proxy_and_seeding_metrics(df))
+    return m
