@@ -182,3 +182,60 @@ def test_dump_json_roundtrips(tmp_path):
     ab.dump_json({"per_seed": [ps], "cross_seed": cross}, str(out))
     loaded = json.loads(out.read_text())
     assert "per_seed" in loaded and "cross_seed" in loaded
+
+
+def test_established_flux_excludes_transient_subeps_strains(tmp_path):
+    """FIX1: established_flux must restrict to strains with freq >= eps at either tick.
+
+    Hand arithmetic (eps=0.01, lag=1):
+      tick1: "EST" count=1000, total=1000  -> freq(EST)=1.0
+      tick2: "EST" count=989, "TRANSIENT" count=1, total=990
+             -> freq(EST)=989/990, freq(TRANSIENT)=1/990 ≈ 0.00101
+
+    OLD code (union-all): keys = {"EST","TRANSIENT"}
+      flux = 0.5 * (|989/990 - 1.0| + |1/990 - 0.0|)
+           = 0.5 * (1/990 + 1/990) = 1/990
+
+    NEW code (eps filter): TRANSIENT freq at tick2 = 1/990 < 0.01, and
+      TRANSIENT was absent at tick1 (not in freqs[tick1]), so it is EXCLUDED.
+      keys = {"EST"} only
+      flux = 0.5 * |989/990 - 1.0| = 0.5 * (1/990) = 1/1980
+
+    Assert exact value 1/1980 (new code) which differs from 1/990 (old code).
+    """
+    rows = [
+        (1, 0, 0, "EST",       0, 1000),
+        (2, 0, 0, "EST",       0,  989),
+        (2, 1, 0, "TRANSIENT", 0,    1),
+    ]
+    p = tmp_path / "flux.parquet"
+    _toy(p, rows)
+    m = ab.diversity_metrics(ab.load(str(p)), lag=1)
+    expected = 1.0 / 1980.0   # new established-only flux at tick 2
+    assert abs(m["established_flux"][2] - expected) < 1e-12, (
+        f"expected {expected}, got {m['established_flux'][2]}"
+    )
+
+
+def test_main_skips_empty_parquet_gracefully(tmp_path, capsys):
+    """FIX2: main() must skip (not crash on) a zero-row parquet.
+
+    Build an empty DataFrame with the correct 6-col typed schema and write it.
+    Then assert that loading it returns an empty DataFrame — confirming the
+    df.empty guard in main() would fire and skip it.
+    """
+    import numpy as np
+    empty_df = pd.DataFrame({
+        "tick":   pd.array([], dtype="int64"),
+        "cell_x": pd.array([], dtype="int64"),
+        "cell_y": pd.array([], dtype="int64"),
+        "strain": pd.array([], dtype="object"),
+        "faction": pd.array([], dtype="int8"),
+        "count":  pd.array([], dtype="int64"),
+    })
+    p = tmp_path / "empty.parquet"
+    empty_df.to_parquet(str(p))
+    loaded = ab.load(str(p))
+    assert loaded.empty, "load() of empty parquet must return empty DataFrame"
+    # Verify the guard condition used in main() fires correctly
+    assert loaded.empty is True

@@ -4,6 +4,13 @@ dynamics metrics and PRINTS them. NEVER emits PASS/FAIL — the human judges
 (spec §0.1, §4). 'kills/减员' is not a column; count-drop figures are PROXIES
 conflating K-wall evaporation + p_leave + arbitration (spec §0.2)."""
 from __future__ import annotations
+import argparse
+import datetime
+import glob
+import json
+import math
+import os
+import re
 import pyarrow.parquet as pq
 import pandas as pd
 
@@ -86,7 +93,8 @@ def diversity_metrics(df: pd.DataFrame, eps: float = 0.01, lag: int = 5) -> dict
         if i - lag < 0:
             continue
         t0 = ticks[i - lag]
-        keys = set(freqs[t]) | set(freqs[t0])
+        keys = {k for k in (set(freqs[t]) | set(freqs[t0]))
+                if freqs[t].get(k, 0.0) >= eps or freqs[t0].get(k, 0.0) >= eps}
         flux = 0.5 * sum(abs(freqs[t].get(k, 0.0) - freqs[t0].get(k, 0.0)) for k in keys)
         established_flux[t] = float(flux)
 
@@ -147,8 +155,6 @@ def per_seed_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict:
     return m
 
 
-import math
-
 
 def cross_seed_metrics(per_seed_list: list, steady_min_ticks: int = 200) -> dict:
     n = len(per_seed_list)
@@ -207,8 +213,6 @@ def cross_seed_metrics(per_seed_list: list, steady_min_ticks: int = 200) -> dict
             "gate0_short_run": gate0_short_run,
             "timeline_reconciliation": timeline_reconciliation}
 
-
-import argparse, glob, json, os, re, datetime
 
 
 def _last(d):
@@ -292,8 +296,12 @@ def main() -> None:
         return
     per_seed = []
     for p in paths:
+        df = load(p)
+        if df.empty:
+            print(f"[skip] {p} — empty parquet (zero rows), skipping")
+            continue
         m = re.search(r"seed(\d+)", os.path.basename(p))
-        ms = per_seed_metrics(load(p), n_cells=args.n_cells)
+        ms = per_seed_metrics(df, n_cells=args.n_cells)
         ms["seed"] = int(m.group(1)) if m else None
         per_seed.append(ms)
     cross = cross_seed_metrics(per_seed)
