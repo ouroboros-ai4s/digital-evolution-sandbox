@@ -55,7 +55,7 @@ def run_one(seed: int, ticks: int, device: torch.device, out_dir: str,
         path = os.path.join(out_dir, f"{_now_tag()}-seed{seed}.parquet")
         rec = Recorder(path, e.table)
     t0 = time.perf_counter()
-    ran = e.run(ticks, recorder=rec)
+    ran = e.run(ticks, recorder=rec, stop_on=())   # spec §3.1: run full T, no early stop
     if device.type == "cuda":
         torch.cuda.synchronize(device)
     dt = time.perf_counter() - t0
