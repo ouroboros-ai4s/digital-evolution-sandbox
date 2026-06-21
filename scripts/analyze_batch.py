@@ -145,3 +145,64 @@ def per_seed_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict:
     m.update(diversity_metrics(df))
     m.update(proxy_and_seeding_metrics(df))
     return m
+
+
+import math
+
+
+def cross_seed_metrics(per_seed_list: list, steady_min_ticks: int = 200) -> dict:
+    n = len(per_seed_list)
+    winners = [m.get("winner_faction") for m in per_seed_list]
+    win_counts = {}
+    for w in winners:
+        if w is not None:
+            win_counts[int(w)] = win_counts.get(int(w), 0) + 1
+
+    p = 0.25
+    sigma = math.sqrt(n * p * (1 - p)) if n else 0.0
+    win_ci_note = {
+        "expected_share": p, "n": n,
+        "per_faction_count": win_counts,
+        "binom_2sigma_lo": p * n - 2 * sigma,
+        "binom_2sigma_hi": p * n + 2 * sigma,
+    }
+
+    # D4 symmetry: per-tick max-min of per-faction occupied counts, averaged across seeds
+    spread_acc, spread_cnt = {}, {}
+    for m in per_seed_list:
+        for t, fac_occ in m.get("faction_occupied", {}).items():
+            if fac_occ:
+                vals = list(fac_occ.values())
+                spread_acc[t] = spread_acc.get(t, 0) + (max(vals) - min(vals))
+                spread_cnt[t] = spread_cnt.get(t, 0) + 1
+    d4_symmetry_spread = {int(t): spread_acc[t] / spread_cnt[t] for t in spread_acc}
+
+    # GATE0: steady window = last tick - fill tick (post-fill band). Use the min across
+    # seeds (worst case). If a seed never filled, treat window as 0.
+    windows = []
+    for m in per_seed_list:
+        ticks = m.get("ticks") or []
+        last = ticks[-1] if ticks else 0
+        fill = m.get("fill_tick")
+        windows.append((last - fill) if fill is not None else 0)
+    steady_window = min(windows) if windows else 0
+    gate0_short_run = {
+        "steady_window_ticks": steady_window, "required": steady_min_ticks,
+        "note": ("steady window < required: red-queen freq-dependence (β<0) NOT computable "
+                 "this batch (spec §1 / GATE0 NA-SHORT-RUN)")
+                if steady_window < steady_min_ticks else "steady window adequate",
+    }
+
+    timeline_reconciliation = {
+        "per_seed": [
+            {"first_cross_faction_tick": m.get("first_cross_faction_tick"),
+             "fill_tick": m.get("fill_tick")}
+            for m in per_seed_list
+        ],
+        "spec_meet": 160, "spec_fill": 320, "design_meet": 32, "design_fill": 60,
+    }
+
+    return {"n_seeds": n, "winners": winners, "win_counts": win_counts,
+            "win_ci_note": win_ci_note, "d4_symmetry_spread": d4_symmetry_spread,
+            "gate0_short_run": gate0_short_run,
+            "timeline_reconciliation": timeline_reconciliation}

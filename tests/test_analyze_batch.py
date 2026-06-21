@@ -98,3 +98,24 @@ def test_xtab_single_faction_strain_excluded_and_two_faction_included(tmp_path):
     xt = m["strain_faction_xtab"]
     assert "SOLO" not in xt, "single-faction strain must be excluded"
     assert xt["MIX"] == {0: 4, 1: 6}, f"two-faction strain must have correct counts, got {xt.get('MIX')}"
+
+
+def test_cross_seed_winrate_and_flags(tmp_path):
+    # 3 fake per-seed dicts with winners 0,1,0 and short steady windows
+    per_seed = []
+    for w, last in [(0, 50), (1, 50), (0, 50)]:
+        per_seed.append({
+            "seed": None, "winner_faction": w,
+            "ticks": list(range(1, last + 1)),
+            "fixation_tick": 40, "first_cross_faction_tick": 20, "fill_tick": 35,
+            "faction_occupied": {1: {0: 1, 1: 1, 2: 1, 3: 1}},
+        })
+    c = ab.cross_seed_metrics(per_seed)
+    assert c["n_seeds"] == 3
+    assert c["winners"] == [0, 1, 0]
+    assert c["win_counts"][0] == 2 and c["win_counts"][1] == 1
+    assert abs(c["win_ci_note"]["expected_share"] - 0.25) < 1e-9
+    # steady window = last_tick - fill_tick = 50 - 35 = 15 < 200 -> short-run flagged
+    assert c["gate0_short_run"]["steady_window_ticks"] <= 15
+    assert "200" in str(c["gate0_short_run"]["required"]) or c["gate0_short_run"]["required"] == 200
+    assert c["timeline_reconciliation"]["spec_meet"] == 160
