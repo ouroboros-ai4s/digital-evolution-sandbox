@@ -129,10 +129,10 @@ def proxy_and_seeding_metrics(df: pd.DataFrame) -> dict:
     if last is not None:
         ld = df[(df["tick"] == last) & (df["count"] > 0)]
         g = ld.groupby(["strain", "faction"])["count"].sum()
-        for strain in ld["strain"].unique():
-            row = g.loc[strain] if strain in g.index.get_level_values(0) else None
-            if row is not None and row.index.nunique() >= 2:
-                xtab[str(strain)] = {int(f): int(v) for f, v in row.items()}
+        for strain, sub in g.groupby(level="strain"):
+            fac_counts = {int(f): int(v) for (_s, f), v in sub.items()}
+            if len(fac_counts) >= 2:
+                xtab[str(strain)] = fac_counts
 
     return {"seed_tick": seed_tick, "seed_distinct_strains": seed_distinct_strains,
             "seed_distinct_factions": seed_distinct_factions,

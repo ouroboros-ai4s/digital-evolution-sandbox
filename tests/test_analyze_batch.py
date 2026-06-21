@@ -82,3 +82,19 @@ def test_per_seed_merges_all(tmp_path):
     m = ab.per_seed_metrics(ab.load(str(p)), n_cells=4)
     # has keys from all three metric groups
     assert "fixation_tick" in m and "n2" in m and "seed_distinct_factions" in m
+
+def test_xtab_single_faction_strain_excluded_and_two_faction_included(tmp_path):
+    """Test xtab with strains under 1 vs 2+ factions at last tick.
+    SOLO: single-faction -> must be excluded (used to crash on scalar collapse).
+    MIX: two-faction -> must be included with correct faction->count mapping."""
+    rows = [
+        (1, 0, 0, "SOLO", 0, 5), (1, 1, 0, "MIX", 0, 5),
+        (2, 0, 0, "SOLO", 0, 7),
+        (2, 1, 0, "MIX", 0, 4), (2, 2, 0, "MIX", 1, 6),
+    ]
+    p = tmp_path / "x.parquet"
+    _toy(p, rows)
+    m = ab.proxy_and_seeding_metrics(ab.load(str(p)))
+    xt = m["strain_faction_xtab"]
+    assert "SOLO" not in xt, "single-faction strain must be excluded"
+    assert xt["MIX"] == {0: 4, 1: 6}, f"two-faction strain must have correct counts, got {xt.get('MIX')}"
