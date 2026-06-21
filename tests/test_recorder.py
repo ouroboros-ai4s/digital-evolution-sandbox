@@ -1,6 +1,6 @@
 # tests/test_recorder.py
 import torch, pyarrow.parquet as pq
-from des.world import World, init_bb0
+from des.world import World, init_bb0, init_factions
 from des.phenotype_cache import StrainTable
 from des.recorder import Recorder
 
@@ -14,7 +14,7 @@ def test_dump_writes_nonempty_rows(tmp_path):
     rec.dump(0, w)
     rec.close()
     tbl = pq.read_table(path).to_pandas()
-    assert set(tbl.columns) == {"tick", "cell_x", "cell_y", "strain", "count"}
+    assert set(tbl.columns) == {"tick", "cell_x", "cell_y", "strain", "faction", "count"}
     assert len(tbl) == 16                      # 4x4 cells, one strain each, count>0
     assert (tbl["count"] == 7).all()
     assert (tbl["tick"] == 0).all()
@@ -57,3 +57,14 @@ def test_writer_thread_error_surfaces(tmp_path):
     import pytest
     with pytest.raises(RuntimeError, match="writer thread died"):
         rec.close()
+
+def test_dump_records_faction(tmp_path):
+    from des.world import init_factions
+    t = StrainTable()
+    w = init_factions(16, 16, 32, DEV, t, fill_per_cell=5, n_fac=4)
+    path = str(tmp_path / "run.parquet")
+    rec = Recorder(path, t); rec.dump(0, w); rec.close()
+    tbl = pq.read_table(path).to_pandas()
+    assert len(tbl) == 4                                  # 4 seeded cells
+    assert set(tbl["faction"].tolist()) == {0, 1, 2, 3}   # one row per faction
+    assert (tbl["count"] == 5).all()

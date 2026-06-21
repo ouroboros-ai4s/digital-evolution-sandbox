@@ -8,7 +8,7 @@ from des.phenotype_cache import StrainTable
 
 _SCHEMA = pa.schema([
     ("tick", pa.int32()), ("cell_x", pa.int32()), ("cell_y", pa.int32()),
-    ("strain", pa.string()), ("count", pa.int32()),
+    ("strain", pa.string()), ("faction", pa.int8()), ("count", pa.int32()),
 ])
 
 class Recorder:
@@ -28,13 +28,14 @@ class Recorder:
                 if job is None:
                     self._q.task_done()
                     break
-                tick, ys, xs, sids, cnts = job
+                tick, ys, xs, sids, facs, cnts = job
                 strains = [".".join(self._table.sequence_of(int(s))) for s in sids]
                 batch = pa.record_batch([
                     pa.array([tick] * len(sids), pa.int32()),
                     pa.array(xs, pa.int32()),
                     pa.array(ys, pa.int32()),
                     pa.array(strains, pa.string()),
+                    pa.array(facs, pa.int8()),
                     pa.array(cnts, pa.int32()),
                 ], schema=_SCHEMA)
                 self._writer.write_batch(batch)
@@ -57,12 +58,14 @@ class Recorder:
         self._check_thread()
         cnt = world.count.to("cpu")
         sid = world.strain_id.to("cpu")
+        fac = world.faction.to("cpu")
         nz = torch.nonzero(cnt > 0, as_tuple=False)   # [M,3] = (y,x,k)
         ys = nz[:, 0].tolist(); xs = nz[:, 1].tolist()
         ks = nz[:, 2]
         sids = sid[nz[:, 0], nz[:, 1], ks].tolist()
+        facs = fac[nz[:, 0], nz[:, 1], ks].tolist()
         cnts = cnt[nz[:, 0], nz[:, 1], ks].tolist()
-        self._q.put((tick, ys, xs, sids, cnts))
+        self._q.put((tick, ys, xs, sids, facs, cnts))
 
     def close(self) -> None:
         if self._closed:
