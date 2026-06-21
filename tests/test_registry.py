@@ -47,7 +47,7 @@ def test_bb0_template_shape():
     assert sum(BB0_TEMPLATE["mutable"]) == 6           # 6 slots
     assert BB0_TEMPLATE["fold"] == (frozenset({0,2,3,4}), frozenset({9,13,15}))
     # locked functional primitives present at design positions (0-indexed)
-    assert BB0_TEMPLATE["layout"][1] == "F4Nr1"
+    assert BB0_TEMPLATE["layout"][1] == "F4Nr4"   # B3 fix: 4-dir expansion (was F4Nr1, north-only)
     assert BB0_TEMPLATE["layout"][5] == "BroadSweep"
     assert BB0_TEMPLATE["layout"][7] == "P_base"
 

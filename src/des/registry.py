@@ -111,7 +111,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
 
 # BB0: 16 positions. Slots (mutable) at design 1-indexed {1,3,4,10,11,14} = 0-idx {0,2,3,9,10,13}.
 _SLOTS = {0, 2, 3, 9, 10, 13}
-_LOCKED = {1: "F4Nr1", 5: "BroadSweep", 7: "P_base"}  # 0-indexed
+_LOCKED = {1: "F4Nr4", 5: "BroadSweep", 7: "P_base"}  # 0-indexed; F4Nr4 = 4-dir expansion (B3 fix)
 BB0_TEMPLATE = {
     "layout": tuple(
         _LOCKED.get(i, "N0") for i in range(16)
