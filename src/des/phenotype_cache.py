@@ -55,6 +55,9 @@ class StrainTable:
         # M1: period[0]=1 (not 0) for the EMPTY sentinel row: avoids modulo-by-zero
         # in the (T-birth)%period firing clock; id 0 never fires anyway (count 0).
         period = torch.ones(n, dtype=torch.int64, device=device)
+        dir_bits = torch.zeros(n, dtype=torch.int64, device=device)
+        repro_period = torch.ones(n, dtype=torch.int64, device=device)
+        anta_period = torch.ones(n, dtype=torch.int64, device=device)
         for sid in range(1, n):
             phe = self._id_to_phe[sid]
             if phe is None:
@@ -66,8 +69,13 @@ class StrainTable:
             prey[sid] = phe.prey_mask
             feat[sid] = phe.feature_mask
             period[sid] = phe.period
+            dir_bits[sid] = phe.dir_bits
+            repro_period[sid] = phe.repro_period
+            anta_period[sid] = phe.anta_period
         result = {"f": f, "p_leave": p_leave, "z_raw": z_raw, "p_x": p_x,
-                  "prey_mask": prey, "feature_mask": feat, "period": period}
+                  "prey_mask": prey, "feature_mask": feat, "period": period,
+                  "dir_bits": dir_bits, "repro_period": repro_period,
+                  "anta_period": anta_period}
         # store cache and clear dirty flag
         self._cached_arrays = result
         self._cached_device = device

@@ -18,6 +18,11 @@ ALPHABET = {
 }
 FEATURE_BIT = {name: 1 << i for i, name in enumerate(sorted(ALPHABET))}
 
+# v1 direction universe: every strain's directions are a subset of these.
+# bit d (in dir_bits) <-> ALL_DIRECTIONS[d]. Extend if a future F primitive adds a direction.
+ALL_DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+_DIR_BIT = {d: 1 << i for i, d in enumerate(ALL_DIRECTIONS)}
+
 # per-letter raw outputs (design tables; numbers are formula anchors, not calibrated knobs)
 _F = {    # name -> (f, directions, p_leave, period)
     "F4Nr1": (0.30, ((-1, 0),), 0.05, 4),
@@ -59,6 +64,8 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     feature_mask = 0
     directions: list[tuple[int, int]] = []
     periods: list[int] = []
+    f_periods: list[int] = []
+    z_periods: list[int] = []
     phase_type: PhaseType | None = None
     dominant_p: str | None = None
 
@@ -74,6 +81,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
                 if d not in directions:
                     directions.append(d)
             periods.append(per)
+            f_periods.append(per)
             phase_type = PhaseType.REPRODUCTION
         elif letter in _Z:
             z, fams, per = _Z[letter]
@@ -83,6 +91,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
                     if ALPHABET[t] == fam:
                         prey_mask |= bit
             periods.append(per)
+            z_periods.append(per)
             if phase_type is None:
                 phase_type = PhaseType.ANTAGONISM
         elif letter in _P:
@@ -101,11 +110,18 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     p_x = max(MU, 1 - px_prod)
     spectrum = _spectrum_for(dominant_p) if dominant_p else ()
     period = min(periods) if periods else 1
+    repro_period = min(f_periods) if f_periods else 1
+    anta_period = min(z_periods) if z_periods else 1
+    dir_bits = 0
+    for d in directions:
+        dir_bits |= _DIR_BIT.get(d, 0)
 
     return Phenotype(
         f=f, directions=tuple(directions), p_leave=p_leave, z_raw=z_sum,
         prey_mask=prey_mask, feature_mask=feature_mask, p_x=p_x,
-        spectrum=spectrum, period=period, phase_type=phase_type, fold=(),
+        spectrum=spectrum, period=period,
+        repro_period=repro_period, anta_period=anta_period, dir_bits=dir_bits,
+        phase_type=phase_type, fold=(),
     )
 
 

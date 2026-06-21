@@ -21,5 +21,8 @@ class Phenotype:
     p_x: float
     spectrum: tuple[tuple[str, float], ...]
     period: int
+    repro_period: int
+    anta_period: int
+    dir_bits: int
     phase_type: PhaseType | None
     fold: tuple[frozenset[int], ...]

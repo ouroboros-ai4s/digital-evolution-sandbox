@@ -34,7 +34,9 @@ def test_phenotype_arrays_indexed_by_id():
     assert abs(arr["f"][sid].item() - 0.30) < 1e-6
     assert arr["prey_mask"].dtype == torch.int64
     # M2: exact key-set guard for downstream kernels
-    assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask", "feature_mask", "period"}
+    assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask",
+                               "feature_mask", "period", "dir_bits",
+                               "repro_period", "anta_period"}
 
 
 DEV = torch.device("cpu")
@@ -63,3 +65,21 @@ def test_phenotype_of_empty_raises():
     # I2: sentinel id 0 must raise KeyError, not AssertionError
     with pytest.raises(KeyError):
         t.phenotype_of(0)
+
+
+# ---------------------------------------------------------------------------
+# Task-5 tests: dir_bits + per-phase periods in phenotype_arrays
+# ---------------------------------------------------------------------------
+
+def test_phenotype_arrays_has_dir_and_periods():
+    t = StrainTable()
+    sid4 = t.get_or_mint(("F4Nr4",))
+    arr = t.phenotype_arrays(torch.device("cpu"))
+    assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask",
+                               "feature_mask", "period", "dir_bits",
+                               "repro_period", "anta_period"}
+    assert arr["dir_bits"].dtype == torch.int64
+    assert int(arr["dir_bits"][sid4]) == 0b1111      # all 4 directions
+    assert int(arr["dir_bits"][0]) == 0              # EMPTY row
+    assert int(arr["repro_period"][sid4]) == 5
+    assert int(arr["repro_period"][0]) == 1          # EMPTY row period 1

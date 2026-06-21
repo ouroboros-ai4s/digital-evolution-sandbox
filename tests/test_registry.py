@@ -101,3 +101,31 @@ def test_dominant_p_picks_higher_padd():
     p = phenotype(("P_base", "P_hotspot"))
     assert p.spectrum == _spectrum_for("P_hotspot")
     assert p.spectrum != _spectrum_for("P_base")
+
+
+# ---------------------------------------------------------------------------
+# Task-5 tests: dir_bits + per-phase periods
+# ---------------------------------------------------------------------------
+
+from des.registry import ALL_DIRECTIONS
+
+def test_dir_bits_match_directions():
+    # F4Nr1 = north only -> exactly the bit for (-1,0)
+    north_bit = 1 << ALL_DIRECTIONS.index((-1, 0))
+    assert phenotype(("F4Nr1",)).dir_bits == north_bit
+    # F4Nr4 = all four -> all four bits
+    assert phenotype(("F4Nr4",)).dir_bits == (1 << len(ALL_DIRECTIONS)) - 1
+    # no F letter -> no directions -> 0
+    assert phenotype(("N0",)).dir_bits == 0
+
+def test_per_phase_periods_split():
+    # BB0 has F4Nr4 (F, period 5), BroadSweep (Z, period 5), P_base (P, period 1).
+    # OLD period = min(5,5,1) = 1.  NEW: repro_period = 5 (F only), anta_period = 5 (Z only).
+    ph = phenotype(BB0_TEMPLATE["layout"])
+    assert ph.period == 1            # old min-over-all unchanged (back-compat)
+    assert ph.repro_period == 5      # F-primitive period
+    assert ph.anta_period == 5       # Z-primitive period
+    # a strain with no F letter -> repro_period defaults to 1
+    assert phenotype(("BroadSweep",)).repro_period == 1
+    # a strain with no Z letter -> anta_period defaults to 1
+    assert phenotype(("F4Nr4",)).anta_period == 1
