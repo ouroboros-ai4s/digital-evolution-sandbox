@@ -9,10 +9,44 @@ DEV = torch.device("cpu")
 
 def test_arrival_buffer_accumulates():
     buf = ArrivalBuffer(DEV)
-    buf.add(torch.tensor([0]), torch.tensor([1]), torch.tensor([7]), torch.tensor([3]))
-    ty, tx, sid, cnt = buf.tensors()
+    buf.add(torch.tensor([0]), torch.tensor([1]), torch.tensor([7]),
+            torch.tensor([3]), torch.tensor([2], dtype=torch.int8))
+    ty, tx, sid, cnt, fac = buf.tensors()
     assert ty.tolist() == [0] and tx.tolist() == [1]
     assert sid.tolist() == [7] and cnt.tolist() == [3]
+    assert fac.tolist() == [2]
+
+def test_offspring_land_on_neighbors_not_source():
+    # single occupied cell, pure F4Nr4 (4 neighbors). Offspring must arrive at the
+    # 4 von-Neumann neighbors of the source, NOT back on the source cell.
+    t = StrainTable()
+    fid = t.get_or_mint(("F4Nr4",))
+    w = World(5, 5, 64, DEV)
+    w.strain_id[2, 2, 0] = fid; w.count[2, 2, 0] = 200; w.faction[2, 2, 0] = 1
+    phe = t.phenotype_arrays(DEV)
+    birth = torch.zeros((5, 5, 64), dtype=torch.int32)
+    g = torch.Generator(device=DEV); g.manual_seed(0)
+    buf, live = phase2_reproduce(w, w.strain_id.clone(), w.count.clone(),
+                                 w.faction.clone(), phe, t, birth, T=5, generator=g)
+    ty, tx, sid, cnt, fac = buf.tensors()
+    arrived = {(int(y), int(x)) for y, x, c in zip(ty, tx, cnt) if c > 0}
+    neighbors = {(1, 2), (3, 2), (2, 1), (2, 3)}
+    assert arrived <= neighbors, f"offspring landed off-neighbor: {arrived - neighbors}"
+    assert (2, 2) not in arrived, "B4 regression: offspring deposited back on source cell"
+    assert arrived, "no offspring scattered at all"
+
+def test_offspring_inherit_parent_faction():
+    t = StrainTable()
+    fid = t.get_or_mint(("F4Nr4",))
+    w = World(5, 5, 64, DEV)
+    w.strain_id[2, 2, 0] = fid; w.count[2, 2, 0] = 200; w.faction[2, 2, 0] = 3
+    phe = t.phenotype_arrays(DEV)
+    birth = torch.zeros((5, 5, 64), dtype=torch.int32)
+    g = torch.Generator(device=DEV); g.manual_seed(1)
+    buf, live = phase2_reproduce(w, w.strain_id.clone(), w.count.clone(),
+                                 w.faction.clone(), phe, t, birth, T=5, generator=g)
+    ty, tx, sid, cnt, fac = buf.tensors()
+    assert (fac[cnt > 0] == 3).all(), "offspring did not inherit parent faction 3"
 
 def test_reproduction_scatters_to_neighbor():
     t = StrainTable()
@@ -25,8 +59,8 @@ def test_reproduction_scatters_to_neighbor():
     birth = torch.zeros((4, 4, 64), dtype=torch.int32)
     g = torch.Generator(device=DEV); g.manual_seed(0)
     buf, live = phase2_reproduce(w, w.strain_id.clone(), w.count.clone(),
-                                 phe, t, birth, T=5, generator=g)
-    ty, tx, sid, cnt = buf.tensors()
+                                 w.faction.clone(), phe, t, birth, T=5, generator=g)
+    ty, tx, sid, cnt, fac = buf.tensors()
     assert cnt.numel() > 0                      # something scattered
     assert (cnt > 0).all()
     # v1 mutation is rare and the seed is fixed → arrivals are dominantly the
@@ -42,9 +76,11 @@ def test_no_reproduction_when_not_firing():
     phe = t.phenotype_arrays(DEV)
     birth = torch.zeros((4, 4, 64), dtype=torch.int32)
     g = torch.Generator(device=DEV); g.manual_seed(0)
+    # F4Nr4's only F-period is 5, so repro_period=5 under both the pre-Task-7 min-rule
+    # and Task 7's per-phase clock → 1 % 5 != 0, nobody fires. No Task-7 dependency here.
     buf, live = phase2_reproduce(w, w.strain_id.clone(), w.count.clone(),
-                                 phe, t, birth, T=1, generator=g)   # 1%5≠0
-    ty, tx, sid, cnt = buf.tensors()
+                                 w.faction.clone(), phe, t, birth, T=1, generator=g)   # 1%5≠0
+    ty, tx, sid, cnt, fac = buf.tensors()
     assert cnt.numel() == 0                     # nobody fired
 
 

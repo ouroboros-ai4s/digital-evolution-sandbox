@@ -12,19 +12,23 @@ class ArrivalBuffer:
         self._tx: list[torch.Tensor] = []
         self._sid: list[torch.Tensor] = []
         self._cnt: list[torch.Tensor] = []
+        self._fac: list[torch.Tensor] = []
 
-    def add(self, ty, tx, sid, cnt) -> None:
+    def add(self, ty, tx, sid, cnt, fac) -> None:
         m = cnt > 0
         if m.any():
             self._ty.append(ty[m]); self._tx.append(tx[m])
             self._sid.append(sid[m]); self._cnt.append(cnt[m])
+            self._fac.append(fac[m])
 
     def tensors(self):
         if not self._cnt:
             z = torch.zeros(0, dtype=torch.int64, device=self.device)
-            return z, z, z.to(torch.int32), z.to(torch.int32)
+            return (z, z, z.to(torch.int32), z.to(torch.int32),
+                    z.to(torch.int8))
         return (torch.cat(self._ty), torch.cat(self._tx),
-                torch.cat(self._sid), torch.cat(self._cnt))
+                torch.cat(self._sid), torch.cat(self._cnt),
+                torch.cat(self._fac))
 
 
 def _mutate_sequence(seq: tuple[str, ...], mutable_mask, spectrum, generator):
@@ -49,65 +53,79 @@ def _mutate_sequence(seq: tuple[str, ...], mutable_mask, spectrum, generator):
     return tuple(new)
 
 
-def phase2_reproduce(world, snap_sid, snap_count, phe, table, birth_tick, T, generator):
+def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
+                     birth_tick, T, generator):
+    """Slot-level vectorized reproduction. Loops over the <=4 directions, NOT over
+    strains. Offspring move to the neighbor (B4 fix: roll the data into place; read
+    target coords from the static meshgrid -- never roll a coordinate grid). Offspring
+    carry the parent slot's faction. Mutants are batch-minted once per tick."""
+    from des.registry import ALL_DIRECTIONS
     H, W, K = snap_count.shape
     dev = world.device
     sid_long = snap_sid.long()
-    f = phe["f"][sid_long]
+
+    f = phe["f"][sid_long]                       # [H,W,K]
     p_leave = phe["p_leave"][sid_long]
     p_x = phe["p_x"][sid_long]
-    period = phe["period"][sid_long]
+    repro_period = phe["repro_period"][sid_long]
+    dir_bits = phe["dir_bits"][sid_long]
+
     alive = snap_count > 0
-    fires = fires_this_tick(birth_tick, period, T) & alive & (f > 0)
+    fires = fires_this_tick(birth_tick, repro_period, T) & alive & (f > 0)
 
     buf = ArrivalBuffer(dev)
-    yy, xx = torch.meshgrid(torch.arange(H, device=dev), torch.arange(W, device=dev), indexing="ij")
 
-    # group firing slots by strain to fetch directions (mutation rare → loop over present strains)
-    present = torch.unique(snap_sid[fires])
-    for sid_val in present.tolist():
-        if sid_val == 0:
-            continue
-        phe_obj = table.phenotype_of(sid_val)
-        dirs = phe_obj.directions
-        if not dirs:
-            continue
-        seq = table.sequence_of(sid_val)
-        mutable = BB0_TEMPLATE["mutable"]  # backbone-locked positions (F4Nr1@1, BroadSweep@5, P_base@7) never mutate
-        # cells where THIS strain fires (any slot)
-        slotmask = (snap_sid == sid_val) & fires
-        cell_count = (snap_count * slotmask).sum(dim=-1)  # [H,W] count of this strain in firing slots
-        cell_fires = cell_count > 0
-        if not cell_fires.any():
-            continue
-        a = cell_count.to(torch.int32)
-        f_val = float(phe_obj.f)
-        px_val = float(phe_obj.p_x)
-        for (dy, dx) in dirs:
-            scattered = binom(a, torch.full_like(a, f_val, dtype=torch.float32), generator)
-            scattered = torch.roll(scattered, shifts=(dy, dx), dims=(0, 1))
-            ty = torch.roll(yy, shifts=(dy, dx), dims=(0, 1))
-            tx = torch.roll(xx, shifts=(dy, dx), dims=(0, 1))
-            # mutation split at landing
-            mut = binom(scattered, torch.full_like(scattered, px_val, dtype=torch.float32), generator)
-            non = scattered - mut
-            buf.add(ty.flatten(), tx.flatten(),
-                    torch.full((H * W,), sid_val, dtype=torch.int32, device=dev),
-                    non.flatten())
-            if mut.sum() > 0:
-                child_seq = _mutate_sequence(seq, mutable, phe_obj.spectrum, generator)
-                child_id = table.get_or_mint(child_seq)
-                buf.add(ty.flatten(), tx.flatten(),
-                        torch.full((H * W,), child_id, dtype=torch.int32, device=dev),
-                        mut.flatten())
+    # static target-coordinate grids, broadcast to slot shape (NEVER rolled)
+    yy, xx = torch.meshgrid(torch.arange(H, device=dev),
+                            torch.arange(W, device=dev), indexing="ij")
+    ty = yy.unsqueeze(-1).expand(H, W, K).contiguous()   # [H,W,K]
+    tx = xx.unsqueeze(-1).expand(H, W, K).contiguous()
 
-    # migration out (spec PHASE 2 line 136): world[g][s] -= min(a_snap*p_leave, a_snap),
-    # subtracted from the POST-antagonism live world. leave AMOUNT is drawn from the
-    # snapshot (a_snap), but applied to world.count (already = post-antagonism count here).
-    # p_leave departers vanish from the source cell by design: design doc line 115/309 defines
-    # p_leave as the reproduction migration COST (teng kong ming e rang wei), NOT a relocation
-    # to neighbors -- they are not re-added as arrivals anywhere. This is intentional, not a
-    # missing feature.
+    faction_long = snap_faction.to(torch.int8)
+
+    # --- pass 1: per direction, compute non-mutant + mutant offspring, roll into place ---
+    rolled = []                 # list of (rolled_non, rolled_mut, rolled_sid, rolled_fac)
+    produced_mut = torch.zeros((H, W, K), dtype=torch.bool, device=dev)
+    for (dy, dx) in ALL_DIRECTIONS:
+        bit = ALL_DIRECTIONS.index((dy, dx))
+        dir_mask = ((dir_bits >> bit) & 1).bool()        # slots that move this direction
+        active = fires & dir_mask
+        a = (snap_count * active).to(torch.int32)        # [H,W,K] firing counts
+        scattered = binom(a, f, generator)               # offspring per source slot
+        mut = binom(scattered, p_x, generator)           # mutant split
+        non = scattered - mut
+        produced_mut |= (mut > 0)
+        # B4 fix: roll the DATA (counts, sid, faction) to the neighbor; coords stay static
+        r_non = torch.roll(non, shifts=(dy, dx), dims=(0, 1))
+        r_mut = torch.roll(mut, shifts=(dy, dx), dims=(0, 1))
+        r_sid = torch.roll(snap_sid, shifts=(dy, dx), dims=(0, 1))
+        r_fac = torch.roll(faction_long, shifts=(dy, dx), dims=(0, 1))
+        rolled.append((r_non, r_mut, r_sid, r_fac))
+
+    # --- batch-mint mutant children once per tick (deterministic: sorted parent order) ---
+    n_before = len(table) + 1
+    child_map = torch.arange(n_before, dtype=torch.int64, device=dev)  # parent->child sid
+    mut_parents = torch.unique(sid_long[produced_mut])
+    mutable = BB0_TEMPLATE["mutable"]
+    for p in sorted(int(x) for x in mut_parents.tolist()):
+        if p == 0:
+            continue
+        seq = table.sequence_of(p)
+        spectrum = table.phenotype_of(p).spectrum
+        child = table.get_or_mint(_mutate_sequence(seq, mutable, spectrum, generator))
+        child_map[p] = child
+
+    # --- pass 2: emit arrival records ---
+    for (r_non, r_mut, r_sid, r_fac) in rolled:
+        # non-mutant offspring keep the parent sid
+        buf.add(ty.flatten(), tx.flatten(), r_sid.to(torch.int32).flatten(),
+                r_non.flatten(), r_fac.flatten())
+        # mutant offspring carry child sid (faction unchanged)
+        child_sid = child_map[r_sid.long()].to(torch.int32)
+        buf.add(ty.flatten(), tx.flatten(), child_sid.flatten(),
+                r_mut.flatten(), r_fac.flatten())
+
+    # --- migration out (unchanged: p_leave departers vanish, design line 115/309) ---
     leave = binom(snap_count, p_leave, generator)
     leave = torch.minimum(leave, snap_count)
     live = (world.count - leave).clamp(min=0)
