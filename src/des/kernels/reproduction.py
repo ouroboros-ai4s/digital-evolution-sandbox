@@ -31,26 +31,21 @@ class ArrivalBuffer:
                 torch.cat(self._fac))
 
 
-def _mutate_sequence(seq: tuple[str, ...], mutable_mask, spectrum, generator):
-    """Replace one mutable slot's letter via Gumbel-argmax over `spectrum`.
-    spectrum: tuple[(letter, q)]. Returns new sequence tuple. Reads only the sequence."""
-    if not spectrum:
-        return seq
-    # choose first mutable slot whose current letter participates (v1 simple rule)
-    idxs = [i for i, m in enumerate(mutable_mask) if m]
-    if not idxs:
-        return seq
-    # device-agnostic (D6): all draws must live on the generator's device, else a CUDA
-    # generator driving CPU tensors raises at the first mutation.
-    dev = generator.device
-    pick_idx = int(torch.randint(len(idxs), (1,), generator=generator, device=dev).item())
-    slot = idxs[pick_idx]
-    letters = [t for t, _ in spectrum]
-    logq = torch.log(torch.tensor([q for _, q in spectrum], device=dev) + 1e-12)
-    gumbel = -torch.log(-torch.log(torch.rand(len(letters), generator=generator, device=dev) + 1e-12) + 1e-12)
-    pick = int(torch.argmax(logq + gumbel).item())
-    new = list(seq); new[slot] = letters[pick]
-    return tuple(new)
+def _mutation_outcomes(seq, mutable, spectrum):
+    """Per-parent mutation categorical (design L246: uniform mutable slot x spectrum
+    letter). Returns (child_sequences, weights) over the full slot x spectrum product;
+    weights sum to 1. Self-loops (letter == current) yield child == parent. Pure fn of
+    the sequence + its spectrum -- reads no world state."""
+    slot_idx = [i for i, ok in enumerate(mutable) if ok]
+    if not slot_idx or not spectrum:
+        return [], []
+    children, weights = [], []
+    for s in slot_idx:                      # ascending: canonical order
+        for letter, q in spectrum:          # spectrum already sorted in _spectrum_for
+            new = list(seq); new[s] = letter
+            children.append(tuple(new))
+            weights.append(q / len(slot_idx))
+    return children, weights
 
 
 def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
@@ -58,7 +53,11 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
     """Slot-level vectorized reproduction. Loops over the <=4 directions, NOT over
     strains. Offspring move to the neighbor (B4 fix: roll the data into place; read
     target coords from the static meshgrid -- never roll a coordinate grid). Offspring
-    carry the parent slot's faction. Mutants are batch-minted once per tick."""
+    carry the parent slot's faction. Mutation is per-individual (design L243): each of
+    the n*p(x) mutant individuals draws its outcome independently.
+    # ponytail: per-individual expand + per-parent multinomial scatter. Ceiling: total
+    # mutant headcount is small (p_x ~ mu). If a high-p_x regime makes it explode,
+    # upgrade to per-cell Multinomial(mut, w) batched over cells -- not before."""
     from des.registry import ALL_DIRECTIONS
     H, W, K = snap_count.shape
     dev = world.device
@@ -85,7 +84,6 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
 
     # --- pass 1: per direction, compute non-mutant + mutant offspring, roll into place ---
     rolled = []                 # list of (rolled_non, rolled_mut, rolled_sid, rolled_fac)
-    produced_mut = torch.zeros((H, W, K), dtype=torch.bool, device=dev)
     for (dy, dx) in ALL_DIRECTIONS:
         bit = ALL_DIRECTIONS.index((dy, dx))
         dir_mask = ((dir_bits >> bit) & 1).bool()        # slots that move this direction
@@ -94,7 +92,6 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
         scattered = binom(a, f, generator)               # offspring per source slot
         mut = binom(scattered, p_x, generator)           # mutant split
         non = scattered - mut
-        produced_mut |= (mut > 0)
         # B4 fix: roll the DATA (counts, sid, faction) to the neighbor; coords stay static
         r_non = torch.roll(non, shifts=(dy, dx), dims=(0, 1))
         r_mut = torch.roll(mut, shifts=(dy, dx), dims=(0, 1))
@@ -102,28 +99,54 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
         r_fac = torch.roll(faction_long, shifts=(dy, dx), dims=(0, 1))
         rolled.append((r_non, r_mut, r_sid, r_fac))
 
-    # --- batch-mint mutant children once per tick (deterministic: sorted parent order) ---
-    n_before = len(table) + 1
-    child_map = torch.arange(n_before, dtype=torch.int64, device=dev)  # parent->child sid
-    mut_parents = torch.unique(sid_long[produced_mut])
-    mutable = BB0_TEMPLATE["mutable"]
-    for p in sorted(int(x) for x in mut_parents.tolist()):
-        if p == 0:
-            continue
-        seq = table.sequence_of(p)
-        spectrum = table.phenotype_of(p).spectrum
-        child = table.get_or_mint(_mutate_sequence(seq, mutable, spectrum, generator))
-        child_map[p] = child
-
-    # --- pass 2: emit arrival records ---
+    # --- pass 2a: emit non-mutant offspring (keep parent sid; faction unchanged) ---
+    fy = ty.flatten(); fx = tx.flatten()
     for (r_non, r_mut, r_sid, r_fac) in rolled:
-        # non-mutant offspring keep the parent sid
-        buf.add(ty.flatten(), tx.flatten(), r_sid.to(torch.int32).flatten(),
+        buf.add(fy, fx, r_sid.to(torch.int32).flatten(),
                 r_non.flatten(), r_fac.flatten())
-        # mutant offspring carry child sid (faction unchanged)
-        child_sid = child_map[r_sid.long()].to(torch.int32)
-        buf.add(ty.flatten(), tx.flatten(), child_sid.flatten(),
-                r_mut.flatten(), r_fac.flatten())
+
+    # --- pass 2b: per-INDIVIDUAL mutation (design L243: n·p(x) individuals each draw
+    # independently; L246: pick a mutable slot uniformly, then a letter from spectrum;
+    # L201: same-sequence mutants merge by key automatically via get_or_mint). ---
+    # Build a flat stream of mutant individuals, each carrying (cell, faction, parent sid).
+    cell_flat = (fy * W + fx)                              # [H*W*K]
+    cells, facs, parents = [], [], []
+    for (_r_non, r_mut, r_sid, r_fac) in rolled:
+        m = r_mut.flatten() > 0
+        if not m.any():
+            continue
+        reps = r_mut.flatten()[m]
+        cells.append(torch.repeat_interleave(cell_flat[m], reps))
+        facs.append(torch.repeat_interleave(r_fac.flatten()[m], reps))
+        parents.append(torch.repeat_interleave(r_sid.flatten()[m].long(), reps))
+
+    if cells:
+        ind_cell = torch.cat(cells)
+        ind_fac = torch.cat(facs)
+        ind_parent = torch.cat(parents)
+        child_sid_i = ind_parent.clone()                  # default: self (parent)
+        # loop over DISTINCT mutant parents (same cardinality the old code paid)
+        for p in sorted(set(int(x) for x in ind_parent.tolist())):
+            if p == 0:
+                continue
+            seq = table.sequence_of(p)
+            spectrum = table.phenotype_of(p).spectrum
+            children, weights = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spectrum)
+            if not children:
+                continue                                  # no mutation possible -> stays parent
+            out_sid = [table.get_or_mint(c) for c in children]  # self-loop -> parent sid
+            sel = (ind_parent == p)
+            n_p = int(sel.sum())
+            w = torch.tensor(weights, dtype=torch.float32, device=dev)
+            draws = torch.multinomial(w, n_p, replacement=True, generator=generator)
+            osid = torch.tensor(out_sid, dtype=torch.int64, device=dev)
+            child_sid_i[sel] = osid[draws]
+        # aggregate individuals -> (cell, faction, child sid) counts, then emit
+        key = torch.stack([ind_cell, ind_fac.long(), child_sid_i], dim=1)
+        uniq, cnt = torch.unique(key, dim=0, return_counts=True)
+        buf.add(uniq[:, 0] // W, uniq[:, 0] % W,
+                uniq[:, 2].to(torch.int32), cnt.to(torch.int32),
+                uniq[:, 1].to(torch.int8))
 
     # --- migration out (unchanged: p_leave departers vanish, design line 115/309) ---
     leave = binom(snap_count, p_leave, generator)

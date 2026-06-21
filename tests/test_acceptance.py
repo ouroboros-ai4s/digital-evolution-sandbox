@@ -90,3 +90,26 @@ def test_acc6_faction_blind_cross_seed_winrate():
     # symmetric seeding -> each faction's mean occupied share within [0.15, 0.35] of 0.25
     for k, m in means.items():
         assert 0.15 < m < 0.35, f"faction {k} mean share {m:.3f} off symmetric 0.25: {means}"
+
+
+def test_acc7_mutation_supply_scales_with_population():
+    # design L243: n*p(x) individuals each mutate INDEPENDENTLY, so new-sequence supply
+    # scales with population N (individuals/cell), NOT with strain count. The old code
+    # minted <=1 child per parent per tick regardless of N -> this test fails under it.
+    # Metric: distinct strains actually PRESENT (count>0) at a fixed early tick, averaged
+    # over seeds. More individuals/cell -> more independent draws -> more of the bounded
+    # neighbor set realized. Pre-saturation, this rises monotonically with fill.
+    def mean_present(fill, seeds=5, T=6):
+        vals = []
+        for s in range(seeds):
+            e = Engine(H=48, W=48, K=64, seed=s, device=DEV, fill_per_cell=fill)
+            e.run(T, stop_on=())
+            vals.append(e.distinct_strains())
+        return sum(vals) / len(vals)
+
+    lo, hi = mean_present(2), mean_present(48)
+    assert hi > lo, (
+        f"mutation supply did not scale with population: fill=2 -> {lo:.1f} present "
+        f"strains, fill=48 -> {hi:.1f} (expected hi > lo per N*mu, design L243)"
+    )
+

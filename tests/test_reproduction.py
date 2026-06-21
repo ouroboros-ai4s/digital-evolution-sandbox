@@ -86,7 +86,7 @@ def test_no_reproduction_when_not_firing():
 
 # ── Fix-wave-1 tests ────────────────────────────────────────────────────────
 
-from des.kernels.reproduction import _mutate_sequence
+from des.kernels.reproduction import _mutation_outcomes
 from des.registry import BB0_TEMPLATE, phenotype as _phenotype
 
 _MUTABLE_SLOTS  = {0, 2, 3, 9, 10, 13}
@@ -94,17 +94,14 @@ _LOCKED_SLOTS   = {1, 5, 7}            # F4Nr1 / BroadSweep / P_base
 
 
 def test_mutation_only_hits_mutable_slots():
-    """Mutated positions must be a strict subset of the 6 design-mutable slots;
-    backbone-locked positions {1,5,7} must NEVER change."""
+    """Every outcome's changed positions must be a subset of the 6 design-mutable
+    slots; backbone-locked positions {1,5,7} must NEVER change."""
     seq = BB0_TEMPLATE["layout"]
-    mask = BB0_TEMPLATE["mutable"]
     spec = _phenotype(seq).spectrum
+    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
     changed = set()
-    for seed in range(2000):
-        g = torch.Generator(device=torch.device("cpu"))
-        g.manual_seed(seed)
-        mutated = _mutate_sequence(seq, mask, spec, g)
-        for i, (a, b) in enumerate(zip(seq, mutated)):
+    for child in children:
+        for i, (a, b) in enumerate(zip(seq, child)):
             if a != b:
                 changed.add(i)
     assert changed.issubset(_MUTABLE_SLOTS), (
@@ -116,17 +113,14 @@ def test_mutation_only_hits_mutable_slots():
 
 
 def test_mutation_spreads_across_mutable_slots():
-    """Over many draws, MORE THAN ONE distinct mutable slot must vary.
-    This FAILS under the old idxs[0] code (always position 0)."""
+    """The outcome set must reach MORE THAN ONE distinct mutable slot
+    (FAILS under the old idxs[0]-only code that always hit position 0)."""
     seq = BB0_TEMPLATE["layout"]
-    mask = BB0_TEMPLATE["mutable"]
     spec = _phenotype(seq).spectrum
+    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
     changed = set()
-    for seed in range(2000):
-        g = torch.Generator(device=torch.device("cpu"))
-        g.manual_seed(seed)
-        mutated = _mutate_sequence(seq, mask, spec, g)
-        for i, (a, b) in enumerate(zip(seq, mutated)):
+    for child in children:
+        for i, (a, b) in enumerate(zip(seq, child)):
             if a != b:
                 changed.add(i)
     assert len(changed) >= 2, (
@@ -134,22 +128,11 @@ def test_mutation_spreads_across_mutable_slots():
     )
 
 
-def test_mutation_deterministic():
-    """Same seed → identical output; different seed differs at least once."""
+def test_mutation_outcomes_weights_normalized():
+    """Weights sum to 1 (a proper categorical) and align 1:1 with children."""
     seq = BB0_TEMPLATE["layout"]
-    mask = BB0_TEMPLATE["mutable"]
     spec = _phenotype(seq).spectrum
+    children, weights = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
+    assert len(children) == len(weights) == len(_MUTABLE_SLOTS) * len(spec)
+    assert abs(sum(weights) - 1.0) < 1e-6, f"weights sum to {sum(weights)}, expected 1.0"
 
-    results_a, results_b, results_c = [], [], []
-    for seed in range(200):
-        g1 = torch.Generator(device=torch.device("cpu")); g1.manual_seed(seed)
-        g2 = torch.Generator(device=torch.device("cpu")); g2.manual_seed(seed)
-        g3 = torch.Generator(device=torch.device("cpu")); g3.manual_seed(seed + 9999)
-        results_a.append(_mutate_sequence(seq, mask, spec, g1))
-        results_b.append(_mutate_sequence(seq, mask, spec, g2))
-        results_c.append(_mutate_sequence(seq, mask, spec, g3))
-
-    # same seed → identical
-    assert results_a == results_b, "same-seed generators produced different sequences"
-    # different seed → at least one difference
-    assert results_a != results_c, "different-seed generators never differed (unexpected)"
