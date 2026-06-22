@@ -12,13 +12,13 @@ NFAC = 4
 
 class Engine:
     def __init__(self, H, W, K, seed, device, z_max=8.0, fill_per_cell=None,
-                 check_every=10):
+                 check_every=10, layout=None):
         self.H, self.W, self.K, self.device, self.z_max = H, W, K, device, z_max
         self.check_every = check_every
         self.table = StrainTable()
         fill = K // 2 if fill_per_cell is None else fill_per_cell
         self.world = init_factions(H, W, K, device, self.table,
-                                   fill_per_cell=fill, n_fac=NFAC)
+                                   fill_per_cell=fill, n_fac=NFAC, layout=layout)
         self.gen = torch.Generator(device=device)
         self.gen.manual_seed(seed)
         self.birth = torch.zeros((H, W, K), dtype=torch.int32, device=device)
