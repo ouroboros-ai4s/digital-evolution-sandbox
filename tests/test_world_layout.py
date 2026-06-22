@@ -1,6 +1,12 @@
 # tests/test_world_layout.py
 import pytest
+import torch
 from des.registry import BB0_TEMPLATE, validate_bb0_layout, _SLOTS, _LOCKED
+from des.world import init_factions
+from des.phenotype_cache import StrainTable
+from des.engine import Engine
+
+DEV = torch.device("cpu")
 
 
 def _canonical():
@@ -43,14 +49,6 @@ def test_unknown_primitive_in_slot_rejected():
 def test_wrong_length_rejected():
     with pytest.raises(ValueError, match="16"):
         validate_bb0_layout(("N0",) * 15)
-
-
-import torch
-from des.world import init_factions
-from des.phenotype_cache import StrainTable
-from des.engine import Engine
-
-DEV = torch.device("cpu")
 
 
 def test_init_factions_default_layout_unchanged():
