@@ -21,9 +21,9 @@ def encode_frame(world, table, tick: int, H: int, W: int, top_n: int = 5) -> dic
     # per-cell per-faction count sum
     by_cell: dict = {}
     for y, x, f, c in zip(ys, xs, facs, cnts):
-        row = by_cell.setdefault((y, x), [0, 0, 0, 0])
+        row = by_cell.setdefault((y, x), [0] * NFAC)
         row[f] += c
-    cells = [[y, x, *row] for (y, x), row in by_cell.items()]
+    cells = [[y, x, *row] for (y, x), row in by_cell.items()]  # cells unordered (one row per non-empty cell); frontend keys by (y,x)
     strains = [".".join(table.sequence_of(int(s))) for s in sids]
     readouts = compute_readouts(xs, ys, strains, facs, cnts)
     leaderboard = _leaderboard(strains, facs, cnts, readouts["total"], top_n)
