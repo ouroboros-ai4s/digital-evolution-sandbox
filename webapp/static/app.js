@@ -89,12 +89,12 @@ function updateReadouts(frame) {
   $("m-total").textContent = r.total;
   $("m-occ").textContent = r.occupied_cells;
   $("m-distinct").textContent = r.distinct_strains;
-  $("m-n2").textContent = r.n2.toFixed(1);
-  $("m-dmax").textContent = r.d_max.toFixed(3);
+  $("m-n2").textContent = (r.n2 ?? 0).toFixed(1);
+  $("m-dmax").textContent = (r.d_max ?? 0).toFixed(3);
   $("tickLabel").textContent = `tick ${frame.tick} / ${readConfig().T}`;
-  for (let f = 0; f < 4; f++) shareSeries[f].push(r.faction_share[f] || 0);
+  for (let f = 0; f < 4; f++) shareSeries[f].push((r.faction_share || {})[f] || 0);
   distinctSeries.push(r.distinct_strains); n2Series.push(r.n2);
-  line("shareChart", shareSeries, ["#ff4d4d", "#4d9bff", "#3fd07f", "#ffcc4d"], 0.6);
+  line("shareChart", shareSeries, ["#ff4d4d", "#4d9bff", "#3fd07f", "#ffcc4d"], 1.0);
   const dmax = Math.max(1, ...distinctSeries), nmax = Math.max(1, ...n2Series);
   line("divChart",
     [distinctSeries.map((v) => v / dmax), n2Series.map((v) => v / nmax)],
@@ -140,7 +140,9 @@ function onCanvasClick(ev) {
   const y = Math.floor((ev.clientY - rect.top) / rect.height * imgW);
   const tick = +$("m-tick").textContent;
   fetch(`/api/cell?path=${encodeURIComponent(livePath)}&tick=${tick}&y=${y}&x=${x}`)
-    .then((r) => r.json()).then((d) => {
+    .then((r) => { if (!r.ok) throw new Error("cell fetch failed"); return r.json(); })
+    .then((d) => {
+      if (!d || !d.strains) return;
       const ul = $("cellDetail"); ul.innerHTML = "";
       if (!d.strains.length) { ul.innerHTML = `<li style="color:var(--dim)">格 (${y},${x}) 空</li>`; return; }
       d.strains.forEach((s) => {
