@@ -1,0 +1,25 @@
+# DES 可视化 Web App
+
+实时游戏界面(验收之眼):选 BB0 对称局起始基因型 → 四阵营从四象限扩张 →
+肉眼看红皇后共存动力学。后端 aiohttp 跑现有 Engine 流帧,前端纯 HTML/CSS/JS。
+
+## 启动
+
+从 repo 根(PowerShell):
+
+```powershell
+$env:PYTHONPATH='src'; D:/anaconda3/envs/basic/python.exe webapp/server.py
+```
+
+浏览器开 http://localhost:8000。
+
+## 数据
+
+每局边跑边写 parquet 到 `data/playground/<timestamp>-live.parquet`(隔离目录,
+gitignore;绝不与 `data/runs/` 正式采集混池)。schema 同正式 run:
+`(tick, cell_x, cell_y, strain, faction, count)`。
+
+## 红线
+
+对称局四阵营同条 layout;locked 位只读、只 6 槽可改;live 帧忠实张量(无平滑);
+读数与 `scripts/analyze_batch.py` 共用 `webapp/readouts.py` 单一来源。
