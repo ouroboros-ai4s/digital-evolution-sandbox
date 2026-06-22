@@ -3,6 +3,68 @@ from __future__ import annotations
 import torch
 
 
+def _urn_draw_contested(merged, rec_cell, avail_grid, contested, W, generator, dev):
+    """Exact multivariate-hypergeometric survivor counts for contested records,
+    drawn at RECORD granularity (no per-individual expansion).
+
+    Per design.md L170-175/L201: draw exactly avail = K - occupied survivors from
+    the pooled arriving individuals of each contested cell; per-individual survival
+    prob = avail/total, weighted ONLY by delivered count -> faction-blind & sid-blind
+    by construction. Cost ~ O(max_avail * n_contested_cells * R_max); max_avail <= K
+    and ~0 when the world is full (the hot regime). Uses only torch.rand.
+
+    Returns: seated [n_rec] int64 -- survivor count per contested record, 0 elsewhere.
+    """
+    n_rec = merged.shape[0]
+    seated = torch.zeros(n_rec, dtype=torch.int64, device=dev)
+    c_idx = torch.nonzero(contested, as_tuple=False).flatten()      # [m] global rec idx
+    m = c_idx.numel()
+    if m == 0:
+        return seated
+
+    c_cell = rec_cell[c_idx]                                         # [m] cell per rec
+    cc, inv = torch.unique(c_cell, return_inverse=True)             # cc:[n_cc], inv:[m]
+    n_cc = cc.numel()
+
+    # within-cell column index per contested record (group by row=inv, enumerate)
+    order = torch.argsort(inv, stable=True)
+    inv_s = inv[order]
+    seg = torch.ones(m, dtype=torch.bool, device=dev)
+    seg[1:] = inv_s[1:] != inv_s[:-1]
+    grp = torch.cumsum(seg.long(), 0) - 1
+    start = torch.searchsorted(grp.contiguous(), grp.contiguous())
+    col_s = torch.arange(m, device=dev) - start                     # col in sorted order
+    col = torch.empty(m, dtype=torch.int64, device=dev)
+    col[order] = col_s                                              # scatter back
+    R_max = int(col.max().item()) + 1
+
+    remaining = torch.zeros((n_cc, R_max), dtype=torch.float32, device=dev)
+    remaining[inv, col] = merged[c_idx].to(torch.float32)          # per-record counts
+    survivor = torch.zeros((n_cc, R_max), dtype=torch.int64, device=dev)
+    cell_avail = avail_grid.flatten()[cc].to(torch.int64)          # [n_cc] avail per cell
+    drawn = torch.zeros(n_cc, dtype=torch.int64, device=dev)
+    rows = torch.arange(n_cc, device=dev)
+    max_avail = int(cell_avail.max().item())
+    tiny = 1e-20
+    neg_inf = torch.tensor(float("-inf"), device=dev)
+
+    for _ in range(max_avail):
+        active = drawn < cell_avail                                 # [n_cc] bool
+        u = torch.rand((n_cc, R_max), generator=generator, device=dev).clamp_(tiny, 1.0)
+        gumbel = -torch.log(-torch.log(u))                          # standard Gumbel
+        score = torch.where(remaining > 0,
+                            torch.log(remaining.clamp(min=tiny)) + gumbel,
+                            neg_inf.expand_as(remaining))           # mask empty records
+        pick = score.argmax(dim=1)                                  # [n_cc] one rec/cell
+        inc = active.to(torch.int64)
+        survivor.index_put_((rows, pick), inc, accumulate=True)
+        remaining.index_put_((rows, pick), (-inc).to(remaining.dtype), accumulate=True)
+        drawn = drawn + inc
+
+    seated[c_idx] = survivor[inv, col]                              # gather back
+    return seated
+
+
 def phase3_arbitrate_vec(live_sid, live_count, live_faction, arrivals, K,
                          birth_tick, T, generator, MAXSID, NFAC=4):
     """Fully vectorized K-wall arbitration with faction.
@@ -61,32 +123,9 @@ def phase3_arbitrate_vec(live_sid, live_count, live_faction, arrivals, K,
     # cells that fit entirely (total <= avail): keep merged as-is.
     contested = rec_total > rec_avail                        # [n_rec] bool
     if contested.any():
-        c_idx = torch.nonzero(contested, as_tuple=False).flatten()   # record indices
-        c_counts = merged[c_idx]                              # [m]
-        # expand contested records to individuals, tagged by local record index
-        labels = torch.repeat_interleave(c_idx, c_counts)     # [n_ind] -> record idx
-        ind_cell = rec_cell[labels]                           # [n_ind] cell per individual
-        keys = torch.rand(labels.shape[0], generator=generator, device=dev)  # i.i.d.
-        # sort by (cell, key): pack cell into the integer part, key into fractional.
-        # cells are < H*W; key in [0,1) -> composite = cell + key is monotonic per cell.
-        composite = ind_cell.to(torch.float64) + keys.to(torch.float64)
-        order = torch.argsort(composite)
-        sorted_cell = ind_cell[order]
-        sorted_label = labels[order]
-        # within-cell rank via segment start (sorted_cell is non-decreasing)
-        n_ind = sorted_cell.shape[0]
-        seg_start = torch.zeros(n_ind, dtype=torch.bool, device=dev)
-        seg_start[0] = True
-        seg_start[1:] = sorted_cell[1:] != sorted_cell[:-1]
-        group_id = torch.cumsum(seg_start.long(), 0) - 1      # 0-based group per individual
-        start_pos = torch.searchsorted(group_id.contiguous(), group_id.contiguous())
-        rank = torch.arange(n_ind, device=dev) - start_pos    # within-cell rank
-        # avail per individual (by its cell)
-        ind_avail = avail_grid.flatten()[sorted_cell]         # [n_ind]
-        keep = rank < ind_avail                               # [n_ind] bool
-        kept_labels = sorted_label[keep]
-        # survivors per contested record = count of kept individuals with that label
-        seated = torch.bincount(kept_labels, minlength=n_rec) # [n_rec]; 0 for non-contested
+        # record-granularity exact urn draw (no per-individual expansion).
+        seated = _urn_draw_contested(merged, rec_cell, avail_grid, contested,
+                                     W, generator, dev)
         survived = torch.where(contested, seated, survived)
 
     # --- 3. vectorized writeback, keyed on (sid, faction) ---
