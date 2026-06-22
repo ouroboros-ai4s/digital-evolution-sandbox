@@ -9,12 +9,13 @@ from aiohttp import web
 from des.engine import Engine
 from des.recorder import Recorder
 from des.registry import _SLOTS, _LOCKED, ALPHABET
-from webapp.frame import encode_frame
+from webapp.frame import encode_frame, cell_detail
 from webapp.drilldown import frame_at_tick, cell_at_tick, strain_trajectory
 
 PLAYGROUND_DIR = os.path.join("data", "playground")
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 _DEVICE_KEY = web.AppKey("device", torch.device)
+_LIVE_KEY = web.AppKey("live_runs", dict)   # parquet path -> running Engine
 
 # 6 v1 primitives, ordered (front-end dropdown reads the same list via /config)
 PALETTE = ["N0", "F4Nr1", "F4Nr4", "P_base", "P_hotspot", "BroadSweep"]
@@ -84,8 +85,13 @@ async def _frame_at_tick(request):
 
 async def _cell(request):
     q = request.query
-    return web.json_response(cell_at_tick(
-        q["path"], int(q["tick"]), int(q["y"]), int(q["x"])))
+    path = q["path"]; y = int(q["y"]); x = int(q["x"])
+    live = request.app[_LIVE_KEY].get(path)
+    if live is not None:
+        # live run: the parquet footer isn't written until close(); read the
+        # in-memory world instead (spec §6: live=memory, replay=parquet).
+        return web.json_response(cell_detail(live.world, live.table, y, x))
+    return web.json_response(cell_at_tick(path, int(q["tick"]), y, x))
 
 
 async def _trajectory(request):
@@ -112,6 +118,7 @@ async def _ws(request):
         tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         path = os.path.join(PLAYGROUND_DIR, f"{tag}-live.parquet")
         rec = Recorder(path, eng.table)
+        request.app[_LIVE_KEY][path] = eng
         await ws.send_json({"event": "started", "config": _jsonable(cfg), "path": path})
         try:
             for _ in range(int(cfg["T"])):
@@ -123,6 +130,7 @@ async def _ws(request):
                 await ws.send_json(frame)   # engine-speed: no sleep, no buffer
         finally:
             rec.close()
+            request.app[_LIVE_KEY].pop(path, None)
         if not ws.closed:
             await ws.send_json({"event": "done", "path": path})
     return ws
@@ -138,6 +146,7 @@ def _jsonable(cfg: dict) -> dict:
 def make_app(device=None) -> web.Application:
     app = web.Application()
     app[_DEVICE_KEY] = _device(device)
+    app[_LIVE_KEY] = {}
     os.makedirs(_STATIC_DIR, exist_ok=True)   # static assets land here (index.html added by a later task)
     app.router.add_get("/config", _config)
     app.router.add_get("/api/frame_at_tick", _frame_at_tick)

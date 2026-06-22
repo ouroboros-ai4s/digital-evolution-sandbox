@@ -152,6 +152,10 @@ function onCanvasClick(ev) {
           `<span style="margin-left:auto;font-variant-numeric:tabular-nums">${s.count}</span>`;
         ul.appendChild(li);
       });
+    })
+    .catch(() => {
+      const ul = $("cellDetail");
+      ul.innerHTML = `<li style="color:var(--dim)">钻取暂不可用,请重试</li>`;
     });
 }
 

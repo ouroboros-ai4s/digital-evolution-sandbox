@@ -13,6 +13,8 @@ $env:PYTHONPATH='src'; D:/anaconda3/envs/basic/python.exe webapp/server.py
 
 浏览器开 http://localhost:8000。
 
+> **注意:** 服务仅绑定 localhost:8000,无鉴权,为单用户本地演示专用,请勿暴露于不受信任的网络。
+
 ## 数据
 
 每局边跑边写 parquet 到 `data/playground/<timestamp>-live.parquet`(隔离目录,
