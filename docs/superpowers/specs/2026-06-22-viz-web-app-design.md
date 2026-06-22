@@ -23,17 +23,17 @@
 
 ```
 浏览器(单页, 纯 HTML/CSS/JS 无框架)
-   │  WebSocket(JSON 帧)         HTTP(钻取/回放查询)
+   │  WebSocket(JSON 帧)         HTTP(钻取/回放查询 + 静态资源)
    ▼                                  ▼
-FastAPI + uvicorn(纯 Python, 轻量装进 basic env, 版本 pin 死)
-   │  后台任务驱动
+aiohttp(纯 Python, basic env 已装 3.13.3, 零新依赖)
+   │  后台 asyncio 任务驱动
    ▼
 现有 Engine(torch/CUDA, RTX 5080)  ──每 tick──▶  现有 Recorder ──▶ parquet(playground 隔离目录)
 ```
 
-**后端(FastAPI + uvicorn + WebSocket):**
-- 纯 Python,不碰 torch CUDA 二进制,轻量装进 conda `basic` env,版本 pin 死(用户已授权可轻量装后端依赖)。
-- 一个后台任务跑现有 `Engine`。每 tick 完成后:① 从 world tensors 算紧凑格子帧 ② 算标量/时序读数。两者打包成 JSON 帧经 WebSocket 推给前端。
+**后端(aiohttp:HTTP + WebSocket + 静态资源 一个库全包):**
+- 选 aiohttp 而非 FastAPI/uvicorn:basic env **已装 `aiohttp==3.13.3`,零新依赖**(ponytail rung 4:已装依赖胜过新装)。单用户本地 demo 不需要 FastAPI 的 auto-docs/pydantic 校验,省 5 个 pin 死的新包。纯 Python,不碰 torch CUDA 二进制。
+- 一个后台 asyncio 任务跑现有 `Engine`。每 tick 完成后:① 从 world tensors 算紧凑格子帧 ② 算标量/时序读数。两者打包成 JSON 帧经 WebSocket 推给前端。
 - **节奏 = 引擎出多快播多快**(已锁):算完一 tick 即推一帧,不限速、不缓冲、不插值。128² 满世界约 2–5 tick/秒,整局约一两分钟。零额外节奏逻辑,且忠实引擎真实速度(不美化,守验收红线)。
 - 同时复用现有 `Recorder` 边跑边写 parquet 到 playground 隔离目录(见 §6 数据隔离)。
 - 帧传输先用 JSON(后期占用格 ~8k,每帧几十 KB,WebSocket 直发够用)。`# ponytail: JSON frames, switch to binary if profiler says too slow` —— 不预先优化二进制编码。
@@ -112,7 +112,7 @@ FastAPI + uvicorn(纯 Python, 轻量装进 basic env, 版本 pin 死)
 
 ## 9. 文件结构(预估,实现期细化)
 
-- 后端:`webapp/server.py`(FastAPI app + WebSocket + 后台引擎任务)、`webapp/readouts.py`(读数纯函数,被 server 与 analyze_batch 共用)、`webapp/frame.py`(world tensor → JSON 帧编码)。
+- 后端:`webapp/server.py`(aiohttp app + WebSocket + 后台引擎任务 + 静态资源 + 钻取 HTTP 路由)、`webapp/readouts.py`(读数纯函数,被 server 与 analyze_batch 共用)、`webapp/frame.py`(world tensor → JSON 帧编码)。
 - 前端:`webapp/static/index.html` + `app.js` + `style.css`(单页,无框架)。
 - 引擎触点:`src/des/world.py`(`init_factions` 加 layout 参 + 校验)。
 - playground 数据:`data/playground/`(隔离目录,gitignore)。
