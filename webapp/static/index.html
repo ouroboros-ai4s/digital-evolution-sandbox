@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>DES 验收之眼</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="rail" id="rail">
+    <button class="railbtn" onclick="document.getElementById('rail').classList.toggle('collapsed')">⚙</button>
+    <h2><span>配置(对称局)</span></h2>
+    <div class="body">
+      <div class="note">这是<b>对称起始基因型</b>(四阵营全同)<br>不是角色/阵营差异系统</div>
+      <h2 style="margin:0 0 6px"><span>BB0 基因型(16 位)</span></h2>
+      <div class="genome" id="genome"></div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">
+        灰=锁死功能位&nbsp; 蓝=可选插槽</div>
+      <h2 style="margin:8px 0 6px"><span>全局参数</span></h2>
+      <div class="row"><span>网格</span><input id="cfg-grid" value="128"></div>
+      <div class="row"><span>K</span><input id="cfg-K" value="64"></div>
+      <div class="row"><span>fill/格</span><input id="cfg-fill" value="20"></div>
+      <div class="row"><span>T (ticks)</span><input id="cfg-T" value="450"></div>
+      <div class="row"><span>seed</span><input id="cfg-seed" value="0"></div>
+      <div class="row"><span>z_max</span><input id="cfg-zmax" value="8.0"></div>
+      <button class="go" id="startBtn">▶ 开始游戏</button>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="stagehead">
+      <span class="title">验收之眼 — <span id="gridLabel">128×128</span> 世界</span>
+      <div class="legend">
+        <span><i style="background:var(--f0)"></i>阵营0</span>
+        <span><i style="background:var(--f1)"></i>阵营1</span>
+        <span><i style="background:var(--f2)"></i>阵营2</span>
+        <span><i style="background:var(--f3)"></i>阵营3</span>
+        <span>亮度=密度&nbsp;·&nbsp;混色=争夺格</span>
+      </div>
+    </div>
+    <div class="canvaswrap">
+      <canvas id="grid" width="128" height="128"></canvas>
+    </div>
+    <div class="transport">
+      <span class="ticklabel" id="tickLabel">tick 0 / 0</span>
+      <span id="status" style="color:var(--dim)">未开始</span>
+      <span style="color:var(--dim);margin-left:auto">点格子 → 看 {strain:count}</span>
+    </div>
+  </main>
+
+  <aside class="read">
+    <div class="cards">
+      <div class="card"><div class="k">tick</div><div class="v" id="m-tick">0</div></div>
+      <div class="card"><div class="k">总个体</div><div class="v" id="m-total">0</div></div>
+      <div class="card"><div class="k">占用格</div><div class="v" id="m-occ">0</div></div>
+      <div class="card"><div class="k">活株</div><div class="v" id="m-distinct">0</div></div>
+      <div class="card"><div class="k">N2</div><div class="v" id="m-n2">0</div></div>
+      <div class="card"><div class="k">d_max</div><div class="v" id="m-dmax">0</div></div>
+    </div>
+    <h3>阵营占比(主判决曲线 → 全贴 0.25=共存)</h3>
+    <canvas class="chart" id="shareChart"></canvas>
+    <h3>多样性(distinct / N2)</h3>
+    <canvas class="chart" id="divChart"></canvas>
+    <h3>主导株排行(top 5)</h3>
+    <ul class="lead" id="lead"></ul>
+    <h3>该格明细(点格子)</h3>
+    <ul class="lead" id="cellDetail"><li style="color:var(--dim)">点中心 canvas 的格子查看</li></ul>
+    <details class="foldpanel"><summary>探索分析(钻取)</summary>
+      <div style="font-size:11px;color:var(--dim);padding:8px 0">
+        点格子看该 tick {strain:count};跨 tick 株轨迹经 /api/trajectory 懒算。</div>
+    </details>
+    <details class="foldpanel"><summary>数据产品展示</summary>
+      <div style="font-size:11px;color:var(--dim);padding:8px 0" id="dataInfo">
+        本局 → parquet(playground 隔离目录)。开始后显示路径。</div>
+    </details>
+  </aside>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

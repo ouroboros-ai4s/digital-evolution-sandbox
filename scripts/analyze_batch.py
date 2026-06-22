@@ -13,6 +13,11 @@ import os
 import re
 import pyarrow.parquet as pq
 import pandas as pd
+import sys
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from webapp.readouts import compute_readouts
 
 
 def load(path: str) -> pd.DataFrame:
@@ -34,9 +39,6 @@ def survival_spatial_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict
 
     def _occ(g):
         return g[["cell_x", "cell_y"]].drop_duplicates().shape[0]
-    occ = live.groupby("tick", group_keys=False)[["cell_x", "cell_y"]].apply(_occ)
-    occupied_cells = {int(t): int(occ.get(t, 0)) for t in ticks}
-    fill_tick = next((t for t in ticks if occupied_cells[t] >= n_cells), None)
 
     per_cell_fac = live.groupby(["tick", "cell_x", "cell_y"])["faction"].nunique()
     cross = per_cell_fac[per_cell_fac > 1]
@@ -48,11 +50,16 @@ def survival_spatial_metrics(df: pd.DataFrame, n_cells: int = 128 * 128) -> dict
     for (t, f), v in fac_occ.items():
         faction_occupied[int(t)][int(f)] = int(v)
 
-    fac_cnt = live.groupby(["tick", "faction"])["count"].sum()
+    occupied_cells = {}
     faction_share = {int(t): {} for t in ticks}
-    for (t, f), v in fac_cnt.items():
-        denom = total_count.get(int(t), 0) or 1
-        faction_share[int(t)][int(f)] = float(v) / denom
+    for t in ticks:
+        lt = live[live["tick"] == t]
+        r = compute_readouts(lt["cell_x"].tolist(), lt["cell_y"].tolist(),
+                             lt["strain"].tolist(), lt["faction"].tolist(),
+                             lt["count"].tolist())
+        occupied_cells[int(t)] = r["occupied_cells"]
+        faction_share[int(t)] = r["faction_share"]
+    fill_tick = next((t for t in ticks if occupied_cells[t] >= n_cells), None)
 
     last = ticks[-1] if ticks else None
     winner_faction = None
@@ -79,9 +86,13 @@ def diversity_metrics(df: pd.DataFrame, eps: float = 0.01, lag: int = 5) -> dict
         tot = float(s.sum()) or 1.0
         f = (s / tot)
         freqs[t] = {str(k): float(v) for k, v in f.items()}
-        distinct_strains[t] = int((s > 0).sum())
-        n2[t] = float(1.0 / (f ** 2).sum()) if len(f) else 0.0
-        d_max[t] = float(f.max()) if len(f) else 0.0
+        lt = df[(df["tick"] == t) & (df["count"] > 0)]
+        r = compute_readouts(lt["cell_x"].tolist(), lt["cell_y"].tolist(),
+                             lt["strain"].tolist(), lt["faction"].tolist(),
+                             lt["count"].tolist())
+        distinct_strains[t] = r["distinct_strains"]
+        n2[t] = r["n2"]
+        d_max[t] = r["d_max"]
 
     # first-seen tick per strain (any row, including count 0 — records emergence)
     first = df.groupby("strain")["tick"].min()

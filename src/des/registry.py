@@ -135,3 +135,25 @@ BB0_TEMPLATE = {
     "mutable": tuple(i in _SLOTS for i in range(16)),
     "fold": (frozenset({0, 2, 3, 4}), frozenset({9, 13, 15})),
 }
+
+
+def validate_bb0_layout(layout: tuple[str, ...]) -> None:
+    """Enforce the BB0 symmetry invariant (viz spec §5 / red-line 4).
+    locked positions must equal _LOCKED; backbone (non-locked, non-slot)
+    positions must stay "N0"; only _SLOTS positions may vary, and only to a
+    primitive in the 6-letter palette. Raises ValueError on any violation."""
+    if len(layout) != 16:
+        raise ValueError(f"BB0 layout must have 16 positions, got {len(layout)}")
+    for i, letter in enumerate(layout):
+        if i in _LOCKED:
+            if letter != _LOCKED[i]:
+                raise ValueError(
+                    f"position {i} is locked to {_LOCKED[i]!r}, got {letter!r}")
+        elif i in _SLOTS:
+            if letter not in ALPHABET:
+                raise ValueError(
+                    f"slot {i} = {letter!r} not in palette {sorted(ALPHABET)}")
+        else:
+            if letter != "N0":
+                raise ValueError(
+                    f"position {i} is backbone-fixed to 'N0', got {letter!r}")

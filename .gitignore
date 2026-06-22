@@ -222,5 +222,7 @@ __marimo__/
 .superpowers/
 # engine dataset dumps (per-run parquet snapshots)
 *.parquet
+# live playground parquet (isolated from data/runs formal collection)
+data/playground/
 # analyze_batch report artifacts (derived, regenerable from parquets)
 data/runs/analysis-*.json

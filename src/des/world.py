@@ -2,7 +2,7 @@
 from __future__ import annotations
 import torch
 from des.phenotype_cache import StrainTable
-from des.registry import BB0_TEMPLATE
+from des.registry import BB0_TEMPLATE, validate_bb0_layout
 
 
 class World:
@@ -33,14 +33,22 @@ def init_bb0(H: int, W: int, K: int, device: torch.device,
 
 
 def init_factions(H: int, W: int, K: int, device: torch.device,
-                  table: StrainTable, fill_per_cell: int, n_fac: int = 4) -> World:
+                  table: StrainTable, fill_per_cell: int, n_fac: int = 4,
+                  layout: tuple[str, ...] | None = None) -> World:
     """Seed BB0 at the four quadrant centers, one faction each, everything else empty.
     The four centers are the D4-symmetric orbit of one point (equal to grid center,
-    equal nearest-wall distance, pairwise-symmetric) → no faction gets a geometric edge."""
+    equal nearest-wall distance, pairwise-symmetric) → no faction gets a geometric edge.
+    layout=None uses the canonical BB0_TEMPLATE["layout"] (default behavior unchanged);
+    a custom layout is gatekeeper-validated (red-line 4) and injected identically into
+    all four factions."""
     assert fill_per_cell <= K, "fill must fit in K slots"
     assert n_fac == 4, "v1 seeds exactly 4 factions at the 4 quadrant centers"
+    if layout is None:
+        layout = BB0_TEMPLATE["layout"]
+    else:
+        validate_bb0_layout(layout)
     w = World(H, W, K, device)
-    bb0 = table.get_or_mint(BB0_TEMPLATE["layout"])
+    bb0 = table.get_or_mint(layout)
     centers = [(H // 4, W // 4), (H // 4, 3 * W // 4),
                (3 * H // 4, W // 4), (3 * H // 4, 3 * W // 4)]
     for fac, (cy, cx) in enumerate(centers):
