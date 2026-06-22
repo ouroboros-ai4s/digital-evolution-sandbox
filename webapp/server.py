@@ -14,6 +14,7 @@ from webapp.drilldown import frame_at_tick, cell_at_tick, strain_trajectory
 
 PLAYGROUND_DIR = os.path.join("data", "playground")
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+_DEVICE_KEY = web.AppKey("device", torch.device)
 
 # 6 v1 primitives, ordered (front-end dropdown reads the same list via /config)
 PALETTE = ["N0", "F4Nr1", "F4Nr4", "P_base", "P_hotspot", "BroadSweep"]
@@ -92,10 +93,14 @@ async def _trajectory(request):
     return web.json_response(strain_trajectory(q["path"], q["strain"]))
 
 
+async def _index(request):
+    return web.FileResponse(os.path.join(_STATIC_DIR, "index.html"))
+
+
 async def _ws(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    device = request.app["device"]
+    device = request.app[_DEVICE_KEY]
     async for msg in ws:
         if msg.type != web.WSMsgType.TEXT:
             continue
@@ -104,7 +109,7 @@ async def _ws(request):
             continue
         eng, cfg = build_engine_from_config(data.get("config") or {}, device)
         os.makedirs(PLAYGROUND_DIR, exist_ok=True)
-        tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         path = os.path.join(PLAYGROUND_DIR, f"{tag}-live.parquet")
         rec = Recorder(path, eng.table)
         await ws.send_json({"event": "started", "config": _jsonable(cfg), "path": path})
@@ -132,14 +137,14 @@ def _jsonable(cfg: dict) -> dict:
 
 def make_app(device=None) -> web.Application:
     app = web.Application()
-    app["device"] = _device(device)
+    app[_DEVICE_KEY] = _device(device)
     os.makedirs(_STATIC_DIR, exist_ok=True)   # static assets land here (index.html added by a later task)
     app.router.add_get("/config", _config)
     app.router.add_get("/api/frame_at_tick", _frame_at_tick)
     app.router.add_get("/api/cell", _cell)
     app.router.add_get("/api/trajectory", _trajectory)
     app.router.add_get("/ws", _ws)
-    app.router.add_get("/", lambda r: web.FileResponse(os.path.join(_STATIC_DIR, "index.html")))
+    app.router.add_get("/", _index)
     app.router.add_static("/static", _STATIC_DIR)
     return app
 
