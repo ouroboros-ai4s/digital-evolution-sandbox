@@ -5,7 +5,6 @@ Tier B (strain_trajectory): predicate-pushdown filtered read, no prebuilt index.
 Reads recorded truth only — never rewrites, never beautifies (red-lines 1/2)."""
 from __future__ import annotations
 import pyarrow.parquet as pq
-import pyarrow.compute as pc
 from webapp.readouts import compute_readouts
 
 NFAC = 4
