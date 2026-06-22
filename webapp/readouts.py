@@ -32,12 +32,11 @@ def compute_readouts(cell_x, cell_y, strain, faction, count) -> dict:
         sumsq = sum((v / total) ** 2 for v in by_strain.values())
         n2 = 1.0 / sumsq if sumsq else 0.0
         d_max = max(v / total for v in by_strain.values())
-    denom = total or 1
     return {
         "total": int(total),
         "occupied_cells": len(occ),
         "distinct_strains": len(by_strain),
         "n2": float(n2),
         "d_max": float(d_max),
-        "faction_share": {int(f): v / denom for f, v in by_faction.items()},
+        "faction_share": {int(f): v / total for f, v in by_faction.items()},
     }

@@ -34,6 +34,8 @@ def test_skewed_strain_freqs():
     # A=30 B=10 -> .75/.25 -> N2 = 1/(.5625+.0625)=1.6, d_max=.75
     cx = [0, 1]; cy = [0, 0]; strain = ["A", "B"]; fac = [0, 0]; cnt = [30, 10]
     r = compute_readouts(cx, cy, strain, fac, cnt)
+    assert r["total"] == 40
+    assert r["occupied_cells"] == 2
     assert abs(r["n2"] - 1.6) < 1e-9
     assert abs(r["d_max"] - 0.75) < 1e-9
 
