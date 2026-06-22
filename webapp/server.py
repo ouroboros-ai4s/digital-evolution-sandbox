@@ -2,9 +2,18 @@
 (layout_from_slots / build_engine_from_config) are unit-tested without the
 event loop; the aiohttp app + WebSocket live loop are added on top."""
 from __future__ import annotations
+import os
+import datetime
 import torch
+from aiohttp import web
 from des.engine import Engine
+from des.recorder import Recorder
 from des.registry import _SLOTS, _LOCKED, ALPHABET
+from webapp.frame import encode_frame
+from webapp.drilldown import frame_at_tick, cell_at_tick, strain_trajectory
+
+PLAYGROUND_DIR = os.path.join("data", "playground")
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 # 6 v1 primitives, ordered (front-end dropdown reads the same list via /config)
 PALETTE = ["N0", "F4Nr1", "F4Nr4", "P_base", "P_hotspot", "BroadSweep"]
@@ -51,3 +60,93 @@ def build_engine_from_config(cfg: dict, device) -> tuple[Engine, dict]:
                  device=device, z_max=float(resolved["z_max"]),
                  fill_per_cell=int(resolved["fill"]), layout=layout)
     return eng, resolved
+
+
+def _device(device):
+    if device is not None:
+        return device
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+async def _config(request):
+    return web.json_response({
+        "palette": PALETTE, "slots": sorted(_SLOTS),
+        "locked": {str(k): v for k, v in _LOCKED.items()},
+        "defaults": _DEFAULTS,
+    })
+
+
+async def _frame_at_tick(request):
+    path = request.query["path"]; tick = int(request.query["tick"])
+    return web.json_response(frame_at_tick(path, tick))
+
+
+async def _cell(request):
+    q = request.query
+    return web.json_response(cell_at_tick(
+        q["path"], int(q["tick"]), int(q["y"]), int(q["x"])))
+
+
+async def _trajectory(request):
+    q = request.query
+    return web.json_response(strain_trajectory(q["path"], q["strain"]))
+
+
+async def _ws(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    device = request.app["device"]
+    async for msg in ws:
+        if msg.type != web.WSMsgType.TEXT:
+            continue
+        data = msg.json()
+        if data.get("cmd") != "start":
+            continue
+        eng, cfg = build_engine_from_config(data.get("config") or {}, device)
+        os.makedirs(PLAYGROUND_DIR, exist_ok=True)
+        tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        path = os.path.join(PLAYGROUND_DIR, f"{tag}-live.parquet")
+        rec = Recorder(path, eng.table)
+        await ws.send_json({"event": "started", "config": _jsonable(cfg), "path": path})
+        try:
+            for _ in range(int(cfg["T"])):
+                if ws.closed:
+                    break
+                eng.step()
+                rec.dump(eng.T, eng.world)
+                frame = encode_frame(eng.world, eng.table, eng.T, eng.H, eng.W)
+                await ws.send_json(frame)   # engine-speed: no sleep, no buffer
+        finally:
+            rec.close()
+        if not ws.closed:
+            await ws.send_json({"event": "done", "path": path})
+    return ws
+
+
+def _jsonable(cfg: dict) -> dict:
+    out = dict(cfg)
+    out["layout"] = list(cfg["layout"])
+    out["slots"] = {str(k): v for k, v in cfg["slots"].items()}
+    return out
+
+
+def make_app(device=None) -> web.Application:
+    app = web.Application()
+    app["device"] = _device(device)
+    os.makedirs(_STATIC_DIR, exist_ok=True)   # static assets land here (index.html added by a later task)
+    app.router.add_get("/config", _config)
+    app.router.add_get("/api/frame_at_tick", _frame_at_tick)
+    app.router.add_get("/api/cell", _cell)
+    app.router.add_get("/api/trajectory", _trajectory)
+    app.router.add_get("/ws", _ws)
+    app.router.add_get("/", lambda r: web.FileResponse(os.path.join(_STATIC_DIR, "index.html")))
+    app.router.add_static("/static", _STATIC_DIR)
+    return app
+
+
+def main() -> None:
+    web.run_app(make_app(), port=8000)
+
+
+if __name__ == "__main__":
+    main()

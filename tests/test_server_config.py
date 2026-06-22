@@ -44,3 +44,18 @@ def test_build_engine_custom_slot_reaches_world():
     eng, cfg = build_engine_from_config(cfg_in, DEV)
     expect = eng.table.get_or_mint(cfg["layout"])
     assert int(eng.world.strain_id[4, 4, 0]) == expect   # quadrant center of 16-grid
+
+
+def test_make_app_registers_routes():
+    from webapp.server import make_app, PLAYGROUND_DIR
+    app = make_app(device=torch.device("cpu"))
+    paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
+    assert "/" in paths
+    assert "/config" in paths
+    assert "/ws" in paths
+    assert "/api/frame_at_tick" in paths
+    assert "/api/cell" in paths
+    assert "/api/trajectory" in paths
+    # red-line 1: playground dir is isolated, never data/runs
+    assert "playground" in PLAYGROUND_DIR
+    assert "runs" not in PLAYGROUND_DIR
