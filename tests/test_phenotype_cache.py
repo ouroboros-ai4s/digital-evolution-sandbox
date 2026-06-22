@@ -83,3 +83,49 @@ def test_phenotype_arrays_has_dir_and_periods():
     assert int(arr["dir_bits"][0]) == 0              # EMPTY row
     assert int(arr["repro_period"][sid4]) == 5
     assert int(arr["repro_period"][0]) == 1          # EMPTY row period 1
+
+
+# ---------------------------------------------------------------------------
+# Task-1 (perf) test: bulk-transfer rebuild must equal per-strain phenotype
+# values across every field. Locks the contract the refactor preserves.
+# ---------------------------------------------------------------------------
+
+_FIELD_ATTRS = ("f", "p_leave", "z_raw", "p_x", "prey_mask", "feature_mask",
+                "period", "dir_bits", "repro_period", "anta_period")
+
+
+def test_phenotype_arrays_bulk_matches_per_strain():
+    t = StrainTable()
+    sids = [
+        t.get_or_mint(("F4Nr1",)),
+        t.get_or_mint(("F4Nr4", "BroadSweep")),
+        t.get_or_mint(("P_hotspot", "N0")),
+        t.get_or_mint(("BroadSweep", "F4Nr1", "P_base")),
+    ]
+    arr = t.phenotype_arrays(torch.device("cpu"))
+
+    # shape + EMPTY row
+    for key in _FIELD_ATTRS:
+        assert arr[key].shape[0] == len(t) + 1, f"{key} wrong length"
+    for key in ("f", "p_leave", "z_raw", "p_x", "prey_mask", "feature_mask", "dir_bits"):
+        assert arr[key][EMPTY_ID].item() == 0, f"{key} EMPTY row must be 0"
+    for key in ("period", "repro_period", "anta_period"):
+        assert arr[key][EMPTY_ID].item() == 1, f"{key} EMPTY row must be 1"
+
+    # dtypes
+    for key in ("f", "p_leave", "z_raw", "p_x"):
+        assert arr[key].dtype == torch.float32, f"{key} must be float32"
+    for key in ("prey_mask", "feature_mask", "period", "dir_bits",
+                "repro_period", "anta_period"):
+        assert arr[key].dtype == torch.int64, f"{key} must be int64"
+
+    # every minted strain's row equals its Phenotype field, field by field
+    for sid in sids:
+        phe = t.phenotype_of(sid)
+        for key in _FIELD_ATTRS:
+            got = arr[key][sid].item()
+            want = getattr(phe, key)
+            if key in ("f", "p_leave", "z_raw", "p_x"):
+                assert abs(got - want) < 1e-6, f"{key}[{sid}]={got} != {want}"
+            else:
+                assert got == want, f"{key}[{sid}]={got} != {want}"

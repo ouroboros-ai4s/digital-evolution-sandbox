@@ -46,18 +46,22 @@ class StrainTable:
         if not self._arrays_dirty and self._cached_device == device and self._cached_arrays is not None:
             return self._cached_arrays
         n = self._next
-        f = torch.zeros(n, dtype=torch.float32, device=device)
-        p_leave = torch.zeros(n, dtype=torch.float32, device=device)
-        z_raw = torch.zeros(n, dtype=torch.float32, device=device)
-        p_x = torch.zeros(n, dtype=torch.float32, device=device)
-        prey = torch.zeros(n, dtype=torch.int64, device=device)
-        feat = torch.zeros(n, dtype=torch.int64, device=device)
-        # M1: period[0]=1 (not 0) for the EMPTY sentinel row: avoids modulo-by-zero
-        # in the (T-birth)%period firing clock; id 0 never fires anyway (count 0).
-        period = torch.ones(n, dtype=torch.int64, device=device)
-        dir_bits = torch.zeros(n, dtype=torch.int64, device=device)
-        repro_period = torch.ones(n, dtype=torch.int64, device=device)
-        anta_period = torch.ones(n, dtype=torch.int64, device=device)
+        # Build per-field CPU lists in one pass, then do ONE bulk host->device
+        # transfer per field. The old loop assigned each f[sid]=scalar straight
+        # into a CUDA tensor -> 10n CPU->GPU syncs/rebuild (~1080ms/tick at n~1e4).
+        # ponytail: list-build + 10 torch.tensor() calls = 10 transfers, not 10n.
+        # Index 0 = EMPTY sentinel: zeros, except periods=1 (M1: modulo-by-zero
+        # guard in the (T-birth)%period firing clock; id 0 never fires anyway).
+        f = [0.0] * n
+        p_leave = [0.0] * n
+        z_raw = [0.0] * n
+        p_x = [0.0] * n
+        prey = [0] * n
+        feat = [0] * n
+        dir_bits = [0] * n
+        period = [1] * n
+        repro_period = [1] * n
+        anta_period = [1] * n
         for sid in range(1, n):
             phe = self._id_to_phe[sid]
             if phe is None:
@@ -72,10 +76,18 @@ class StrainTable:
             dir_bits[sid] = phe.dir_bits
             repro_period[sid] = phe.repro_period
             anta_period[sid] = phe.anta_period
-        result = {"f": f, "p_leave": p_leave, "z_raw": z_raw, "p_x": p_x,
-                  "prey_mask": prey, "feature_mask": feat, "period": period,
-                  "dir_bits": dir_bits, "repro_period": repro_period,
-                  "anta_period": anta_period}
+        result = {
+            "f": torch.tensor(f, dtype=torch.float32, device=device),
+            "p_leave": torch.tensor(p_leave, dtype=torch.float32, device=device),
+            "z_raw": torch.tensor(z_raw, dtype=torch.float32, device=device),
+            "p_x": torch.tensor(p_x, dtype=torch.float32, device=device),
+            "prey_mask": torch.tensor(prey, dtype=torch.int64, device=device),
+            "feature_mask": torch.tensor(feat, dtype=torch.int64, device=device),
+            "period": torch.tensor(period, dtype=torch.int64, device=device),
+            "dir_bits": torch.tensor(dir_bits, dtype=torch.int64, device=device),
+            "repro_period": torch.tensor(repro_period, dtype=torch.int64, device=device),
+            "anta_period": torch.tensor(anta_period, dtype=torch.int64, device=device),
+        }
         # store cache and clear dirty flag
         self._cached_arrays = result
         self._cached_device = device
