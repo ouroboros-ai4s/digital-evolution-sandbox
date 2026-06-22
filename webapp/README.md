@@ -8,8 +8,12 @@
 从 repo 根(PowerShell):
 
 ```powershell
-$env:PYTHONPATH='src'; D:/anaconda3/envs/basic/python.exe webapp/server.py
+$env:PYTHONPATH='src'; D:/anaconda3/envs/basic/python.exe -m webapp.server
 ```
+
+> 必须用 `-m webapp.server`(模块形式,从 repo 根跑)。`webapp/server.py` 用了绝对导入
+> `from webapp.frame import ...`;直接 `python webapp/server.py` 会把 `webapp/` 放进 sys.path
+> 而非 repo 根,导致 `ModuleNotFoundError: No module named 'webapp'`。
 
 浏览器开 http://localhost:8000。
 
