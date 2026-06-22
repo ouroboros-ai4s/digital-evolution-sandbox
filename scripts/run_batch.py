@@ -76,7 +76,7 @@ def phase_probe(seed: int, ticks: int, device: torch.device) -> None:
     from des.kernels.reproduction import phase2_reproduce
     from des.kernels.arbitration import phase3_arbitrate_vec
     e = Engine(H=H, W=W, K=K, seed=seed, device=device, z_max=Z_MAX, fill_per_cell=FILL)
-    acc = {"anta": 0.0, "repro": 0.0, "arb": 0.0}
+    acc = {"anta": 0.0, "repro": 0.0, "phe": 0.0, "arb": 0.0}
     def sync():
         if device.type == "cuda":
             torch.cuda.synchronize(device)
@@ -87,18 +87,22 @@ def phase_probe(seed: int, ticks: int, device: torch.device) -> None:
         sync(); t1 = time.perf_counter(); e.world.count = post
         buf, live = phase2_reproduce(e.world, ssid, scnt, sfac, e._phe, e.table,
                                      e.birth, e.T, e.gen)
-        sync(); t2 = time.perf_counter(); e.world.count = live; e._refresh_phe()
+        sync(); t2 = time.perf_counter(); e.world.count = live
+        e._refresh_phe()
+        sync(); t3 = time.perf_counter()
         nsid, ncnt, nfac, nbirth = phase3_arbitrate_vec(
             e.world.strain_id, e.world.count, e.world.faction, buf.tensors(), e.K,
             e.birth, e.T, e.gen, MAXSID=len(e.table) + 1, NFAC=4)
-        sync(); t3 = time.perf_counter()
+        sync(); t4 = time.perf_counter()
         e.world.strain_id, e.world.count, e.world.faction, e.birth = nsid, ncnt, nfac, nbirth
         e.T += 1
-        acc["anta"] += (t1 - t0); acc["repro"] += (t2 - t1); acc["arb"] += (t3 - t2)
+        acc["anta"] += (t1 - t0); acc["repro"] += (t2 - t1)
+        acc["phe"] += (t3 - t2); acc["arb"] += (t4 - t3)
     n = max(1, ticks)
     print(f"[phase-probe {ticks} ticks] "
           f"anta {1000*acc['anta']/n:.1f} | repro {1000*acc['repro']/n:.1f} | "
-          f"arb {1000*acc['arb']/n:.1f} ms/tick (occupancy grows over the run)")
+          f"phe {1000*acc['phe']/n:.1f} | arb {1000*acc['arb']/n:.1f} "
+          f"ms/tick (occupancy grows over the run)")
 
 
 def main() -> None:
