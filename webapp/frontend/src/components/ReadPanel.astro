@@ -1,0 +1,19 @@
+---
+---
+<aside class="read">
+  <div class="cards">
+    <div class="card"><div class="k">tick</div><div class="v" id="m-tick">0</div></div>
+    <div class="card"><div class="k">总个体</div><div class="v" id="m-total">0</div></div>
+    <div class="card"><div class="k">占用格</div><div class="v" id="m-occ">0</div></div>
+    <div class="card"><div class="k">活株</div><div class="v" id="m-distinct">0</div></div>
+    <div class="card"><div class="k">N2</div><div class="v" id="m-n2">0</div></div>
+    <div class="card"><div class="k">d_max</div><div class="v" id="m-dmax">0</div></div>
+  </div>
+  <h3>阵营占比(主判决曲线 → 全贴 0.25=共存)</h3>
+  <canvas class="chart" id="shareChart"></canvas>
+  <h3>多样性(distinct / N2)</h3>
+  <canvas class="chart" id="divChart"></canvas>
+  <h3>主导株排行(top 5)</h3><ul class="lead" id="lead"></ul>
+  <h3>该格明细(点格子)</h3>
+  <ul class="lead" id="cellDetail"><li style="color:var(--dim)">点中心 canvas 的格子查看</li></ul>
+</aside>

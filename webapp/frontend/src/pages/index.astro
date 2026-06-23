@@ -1,0 +1,56 @@
+---
+import PlayerRail from "../components/PlayerRail.astro";
+import Stage from "../components/Stage.astro";
+import ReadPanel from "../components/ReadPanel.astro";
+import "../styles/global.css";
+---
+<!doctype html>
+<html lang="zh">
+<head><meta charset="utf-8"><title>DES 验收之眼</title></head>
+<body>
+  <div class="app">
+    <PlayerRail />
+    <div class="resizer" id="lresizer"></div>
+    <Stage />
+    <div class="resizer" id="rresizer"></div>
+    <ReadPanel />
+  </div>
+  <script>
+    import { setupCanvas } from "../scripts/render.js";
+    import { line } from "../scripts/charts.js";
+    import { loadConfig } from "../scripts/config.js";
+    import { start, reset, onCanvasClick } from "../scripts/sim.js";
+
+    // draggable column resizers — offsetWidth version copied VERBATIM from mockup.
+    function setupResizers() {
+      const app = document.querySelector(".app");
+      function drag(el, varName, col) {
+        el.addEventListener("mousedown", (e) => {
+          e.preventDefault(); el.classList.add("drag");
+          const startX = e.clientX, startW = app.children[col].offsetWidth;
+          const move = (ev) => {
+            const dx = ev.clientX - startX;
+            const w = Math.max(160, Math.min(560, startW + (col === 0 ? dx : -dx)));
+            app.style.setProperty(varName, w + "px");
+          };
+          const up = () => {
+            el.classList.remove("drag");
+            document.removeEventListener("mousemove", move);
+            document.removeEventListener("mouseup", up);
+          };
+          document.addEventListener("mousemove", move);
+          document.addEventListener("mouseup", up);
+        });
+      }
+      drag(document.getElementById("lresizer"), "--lw", 0);   // col 0 = .rail
+      drag(document.getElementById("rresizer"), "--rw", 4);   // col 4 = .read
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      setupCanvas(128); loadConfig(); setupResizers(); reset();
+      document.getElementById("startBtn").onclick = start;
+      document.getElementById("grid").addEventListener("click", onCanvasClick);
+    });
+  </script>
+</body>
+</html>

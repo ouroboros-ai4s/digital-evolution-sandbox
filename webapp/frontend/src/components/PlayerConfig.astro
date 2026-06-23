@@ -1,0 +1,15 @@
+---
+import GenomeList from "./GenomeList.astro";
+const { faction } = Astro.props;
+const FC = ["255,77,77", "77,155,255", "63,208,127", "255,204,77"];
+const FNAME = ["阵营0", "阵营1", "阵营2", "阵营3"];
+---
+<details class="player" open={faction === 0}>
+  <summary>
+    <span class="dot" style={`background:rgb(${FC[faction]})`}></span>
+    <span>玩家 {faction} · {FNAME[faction]}</span>
+    <span class="pct">25.0%</span>
+    <span class="chev">▸</span>
+  </summary>
+  <div class="pbody"><GenomeList faction={faction} /></div>
+</details>

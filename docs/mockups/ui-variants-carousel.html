@@ -1,0 +1,107 @@
+<!doctype html>
+<!-- MOCKUP carousel — 4 UI variants, ←/→ to switch. Hardcoded data, throwaway.
+     Shared center(canvas)+right(readouts); LEFT rail / LEGEND / PLAY differ per version. -->
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>DES UI 变体 — ←/→ 切换</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#c9d1d9; --dim:#8b949e;
+  --f0:#ff4d4d; --f1:#4d9bff; --f2:#3fd07f; --f3:#ffcc4d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+     font:13px/1.4 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:auto 1fr 320px;height:100vh}
+.rail{background:var(--panel);border-right:1px solid var(--line);
+      width:268px;transition:width .15s;overflow-y:auto}
+.rail.collapsed{width:40px}
+.rail h2{font-size:12px;letter-spacing:.05em;color:var(--dim);
+         text-transform:uppercase;margin:14px 12px 8px}
+.rail .body{padding:0 12px 16px}
+.collapsed .body, .collapsed h2 span{display:none}
+.railbtn{width:40px;height:40px;background:none;border:0;color:var(--txt);
+         cursor:pointer;font-size:16px}
+.note{font-size:11px;color:var(--dim);background:#1f2937;border:1px solid var(--line);
+      border-radius:6px;padding:6px 8px;margin-bottom:12px}
+.genome{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-bottom:8px}
+.genome.compact{grid-template-columns:repeat(8,1fr);gap:2px}
+.pos{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;
+     align-items:center;justify-content:center;font-size:9px;text-align:center;padding:1px}
+.pos.locked{background:#21262d;color:var(--dim)}
+.pos.slot{background:#1c2733;color:#79c0ff}
+.pos.slot select{background:#0d1117;border:0;color:#79c0ff;font-size:9px;width:100%;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
+.row input{background:#0d1117;border:1px solid var(--line);color:var(--txt);
+     border-radius:4px;padding:2px 6px;width:90px}
+.go{width:100%;margin-top:12px;padding:9px;background:#238636;border:0;border-radius:6px;
+    color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+.go.paused{background:#9e6a03}
+
+/* ---- player accordion (V2/V3/V4) ---- */
+.player{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;overflow:hidden}
+.player>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+     padding:8px 10px;background:#0d1117;font-weight:600}
+.player>summary::-webkit-details-marker{display:none}
+.player>summary .dot{width:11px;height:11px;border-radius:3px;flex:none}
+.player>summary .pct{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums;font-weight:400}
+.player>summary .chev{color:var(--dim);transition:transform .15s}
+.player[open]>summary .chev{transform:rotate(90deg)}
+.player .pbody{padding:8px 10px;border-top:1px solid var(--line)}
+
+.stage{display:flex;flex-direction:column;min-width:0}
+.stagehead{display:flex;align-items:center;gap:14px;padding:10px 16px;
+           border-bottom:1px solid var(--line)}
+.stagehead .title{font-weight:600}
+.legend{margin-left:auto;font-size:11px;color:var(--dim)}
+.legend.horz{display:flex;gap:12px}
+.legend.vert{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;
+          vertical-align:-1px}
+.legend.vert .lrow{display:flex;align-items:center;gap:4px;min-width:140px}
+.legend.vert .lrow .lpct{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--txt)}
+.canvaswrap{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;min-height:0}
+#grid{image-rendering:pixelated;background:#000;border:1px solid var(--line);
+      width:min(72vh,100%);height:min(72vh,100%);aspect-ratio:1;cursor:crosshair}
+.transport{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line)}
+.transport .pbtn{background:#21262d;border:1px solid var(--line);color:var(--txt);
+     border-radius:6px;padding:5px 14px;cursor:pointer;font-size:14px;min-width:84px}
+.transport .pbtn.run{border-color:#2ea043;color:#3fb950}
+.transport input[type=range]{width:120px}
+.ticklabel{font-variant-numeric:tabular-nums;color:var(--dim);min-width:120px}
+.read{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:14px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.card{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.card .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.card .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.read h3{font-size:11px;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;margin:16px 0 6px}
+.chart{width:100%;height:90px;background:#0d1117;border:1px solid var(--line);border-radius:6px}
+.lead{list-style:none;padding:0;margin:0;font-size:12px}
+.lead li{display:flex;align-items:center;gap:6px;padding:3px 0}
+.lead .seq{font-family:ui-monospace,monospace;font-size:10px;color:var(--dim);
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.foldpanel{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+.foldpanel summary{cursor:pointer;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+
+/* ---- version badge / pager ---- */
+.pager{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;
+   background:#000a;border:1px solid var(--line);border-radius:20px;padding:5px 14px;
+   font-size:12px;color:var(--dim);display:flex;align-items:center;gap:10px;backdrop-filter:blur(4px)}
+.pager b{color:var(--txt)}
+.pager .dots{display:flex;gap:5px}
+.pager .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.pager .dots i.on{background:#3fb950}
+.pager .key{color:var(--dim);font-size:11px}
+</style>
+</head>
+<body>
+<div class="pager">
+  <span class="key">← →</span>
+  <span>版本 <b id="vNum">1</b>/4 · <b id="vName">基线</b></span>
+  <span class="dots" id="vDots"></span>
+</div>
+<div class="app" id="app"></div>
+<script src="ui-variants-carousel.js"></script>
+</body>
+</html>
