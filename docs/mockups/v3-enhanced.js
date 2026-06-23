@@ -69,14 +69,18 @@ function buildPlayers(){
          <span>玩家 ${f} · ${FNAME[f]}</span><span class="pct">25.0%</span>
          <span class="chev">▸</span></summary>
        <div class="pbody">
-         <div style="font-size:10px;color:var(--dim);margin-bottom:6px">BB0 基因型(16 位)· 灰=锁死 蓝=插槽</div>
-         <div class="genome">`);
+         <div style="font-size:10px;color:var(--dim);margin-bottom:6px">BB0 基因型(16 位)· 灰=骨架噪声 · 深=功能锁死 · 蓝=可选插槽</div>
+         <div class="genome-list">`);
     for(let i=0;i<16;i++){
-      if(LOCKED[i]!==undefined){h.push(`<div class="pos locked">${LOCKED[i]}</div>`);}
-      else if(SLOTS.has(i)){
+      const idx=`<span class="gi">#${i}</span>`;
+      if(LOCKED[i]!==undefined){
+        h.push(`<div class="grow fn">${idx}<span class="gtype">功能·锁死</span><span class="gtag">${LOCKED[i]}</span></div>`);
+      }else if(SLOTS.has(i)){
         const opts=PALETTE.map(p=>`<option ${p===(slots[i]||'N0')?'selected':''}>${p}</option>`).join('');
-        h.push(`<div class="pos slot"><select>${opts}</select></div>`);
-      }else{h.push(`<div class="pos locked">N0</div>`);}
+        h.push(`<div class="grow slot">${idx}<span class="gtype">插槽</span><select>${opts}</select></div>`);
+      }else{
+        h.push(`<div class="grow bb">${idx}<span class="gtype">骨架</span><span class="gtag">N0</span></div>`);
+      }
     }
     h.push(`</div></div></details>`);
   }
@@ -151,9 +155,31 @@ function renderLeaderboard(){
     ul.appendChild(li);});
 }
 
+// ---- draggable column resizers (left rail / right readout) ----
+function setupResizers(){
+  const app=document.querySelector(".app");
+  function drag(el,varName,fromLeft){
+    el.addEventListener("mousedown",(e)=>{
+      e.preventDefault(); el.classList.add("drag");
+      const startX=e.clientX, start=parseInt(getComputedStyle(app).getPropertyValue(varName));
+      const move=(ev)=>{
+        const dx=ev.clientX-startX;
+        const w=Math.max(160,Math.min(560,start+(fromLeft?dx:-dx)));
+        app.style.setProperty(varName,w+"px");
+      };
+      const up=()=>{el.classList.remove("drag");
+        document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
+        line("shareChart",shareSeries,["#ff4d4d","#4d9bff","#3fd07f","#ffcc4d"],1.0);};  // charts re-fit to new width
+      document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    });
+  }
+  drag(document.getElementById("lresizer"),"--lw",true);
+  drag(document.getElementById("rresizer"),"--rw",false);
+}
+
 // ---- init ----
 window.addEventListener("DOMContentLoaded",()=>{
-  buildPlayers(); buildLegend(); setupCanvas(); reset();
+  buildPlayers(); buildLegend(); setupCanvas(); setupResizers(); reset();
   document.getElementById("startBtn").onclick=()=>{started?reset():play();};
   document.getElementById("playBtn").onclick=()=>{if(!started)return; running?pause():play();};
   document.getElementById("speedSlider").oninput=()=>{
