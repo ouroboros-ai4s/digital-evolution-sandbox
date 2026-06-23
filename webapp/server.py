@@ -45,22 +45,29 @@ def layout_from_slots(slots: dict) -> tuple[str, ...]:
 
 
 def build_engine_from_config(cfg: dict, device) -> tuple[Engine, dict]:
-    """cfg keys (all optional): slots{int:str}, grid, K, fill, T, seed, z_max.
-    Returns (engine, resolved_cfg) where resolved_cfg has defaults filled and a
-    'layout' tuple. Engine -> init_factions -> validate_bb0_layout enforces
-    red-line 4; only primitive letters + run knobs ever enter here (red-line 3)."""
-    slots = {int(k): v for k, v in (cfg.get("slots") or {}).items()}
-    layout = layout_from_slots(slots)
+    """cfg keys: players (list of exactly 4 {slots:{int:str}}), grid, K, fill,
+    T, seed, z_max (globals shared across all four factions). Returns (engine,
+    resolved) where resolved has defaults filled, a 'players' echo, and a 4-tuple
+    'layouts'. Each layout -> layout_from_slots -> validate_bb0_layout enforces the
+    template structure (red-line 4: same template, slot choices may differ); only
+    primitive letters + run knobs ever enter here (red-line 3)."""
+    players = cfg.get("players")
+    if not isinstance(players, list) or len(players) != 4:
+        raise ValueError(f"config must have exactly 4 players, got {players!r}")
+    layouts = tuple(
+        layout_from_slots({int(k): v for k, v in (p.get("slots") or {}).items()})
+        for p in players
+    )
     resolved = dict(_DEFAULTS)
     for k in _DEFAULTS:
         if cfg.get(k) is not None:
             resolved[k] = cfg[k]
-    resolved["slots"] = slots
-    resolved["layout"] = layout
+    resolved["players"] = players
+    resolved["layouts"] = layouts
     g = int(resolved["grid"])
     eng = Engine(H=g, W=g, K=int(resolved["K"]), seed=int(resolved["seed"]),
                  device=device, z_max=float(resolved["z_max"]),
-                 fill_per_cell=int(resolved["fill"]), layout=layout)
+                 fill_per_cell=int(resolved["fill"]), layouts=layouts)
     return eng, resolved
 
 
@@ -113,7 +120,11 @@ async def _ws(request):
         data = msg.json()
         if data.get("cmd") != "start":
             continue
-        eng, cfg = build_engine_from_config(data.get("config") or {}, device)
+        try:
+            eng, cfg = build_engine_from_config(data.get("config") or {}, device)
+        except ValueError as e:
+            await ws.send_json({"event": "error", "msg": str(e)})
+            continue
         os.makedirs(PLAYGROUND_DIR, exist_ok=True)
         tag = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         path = os.path.join(PLAYGROUND_DIR, f"{tag}-live.parquet")
@@ -138,8 +149,9 @@ async def _ws(request):
 
 def _jsonable(cfg: dict) -> dict:
     out = dict(cfg)
-    out["layout"] = list(cfg["layout"])
-    out["slots"] = {str(k): v for k, v in cfg["slots"].items()}
+    out["layouts"] = [list(lay) for lay in cfg["layouts"]]
+    out["players"] = [{"slots": {str(k): v for k, v in (p.get("slots") or {}).items()}}
+                      for p in cfg["players"]]
     return out
 
 
