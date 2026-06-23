@@ -95,12 +95,5 @@ def test_make_app_registers_routes():
     from webapp.server import make_app, PLAYGROUND_DIR
     app = make_app(device=torch.device("cpu"))
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
-    assert "/" in paths
-    assert "/config" in paths
-    assert "/ws" in paths
-    assert "/api/frame_at_tick" in paths
-    assert "/api/cell" in paths
-    assert "/api/trajectory" in paths
-    # red-line 1: playground dir is isolated, never data/runs
-    assert "playground" in PLAYGROUND_DIR
-    assert "runs" not in PLAYGROUND_DIR
+    assert {"/", "/config", "/ws", "/api/frame_at_tick", "/api/cell", "/api/trajectory"} <= paths
+    assert "playground" in PLAYGROUND_DIR and "runs" not in PLAYGROUND_DIR

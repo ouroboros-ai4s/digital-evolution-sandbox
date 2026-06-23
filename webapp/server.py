@@ -13,7 +13,7 @@ from webapp.frame import encode_frame, cell_detail
 from webapp.drilldown import frame_at_tick, cell_at_tick, strain_trajectory
 
 PLAYGROUND_DIR = os.path.join("data", "playground")
-_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
 _DEVICE_KEY = web.AppKey("device", torch.device)
 _LIVE_KEY = web.AppKey("live_runs", dict)   # parquet path -> running Engine
 
@@ -107,7 +107,11 @@ async def _trajectory(request):
 
 
 async def _index(request):
-    return web.FileResponse(os.path.join(_STATIC_DIR, "index.html"))
+    index = os.path.join(_STATIC_DIR, "index.html")
+    if not os.path.exists(index):
+        raise web.HTTPServiceUnavailable(
+            text="前端未构建:先 cd webapp/frontend && npm install && npm run build")
+    return web.FileResponse(index)
 
 
 async def _ws(request):
@@ -159,18 +163,20 @@ def make_app(device=None) -> web.Application:
     app = web.Application()
     app[_DEVICE_KEY] = _device(device)
     app[_LIVE_KEY] = {}
-    os.makedirs(_STATIC_DIR, exist_ok=True)   # static assets land here (index.html added by a later task)
     app.router.add_get("/config", _config)
     app.router.add_get("/api/frame_at_tick", _frame_at_tick)
     app.router.add_get("/api/cell", _cell)
     app.router.add_get("/api/trajectory", _trajectory)
     app.router.add_get("/ws", _ws)
     app.router.add_get("/", _index)
-    app.router.add_static("/static", _STATIC_DIR)
+    if os.path.isdir(os.path.join(_STATIC_DIR, "_astro")):
+        app.router.add_static("/_astro", os.path.join(_STATIC_DIR, "_astro"))
     return app
 
 
 def main() -> None:
+    if not os.path.exists(os.path.join(_STATIC_DIR, "index.html")):
+        print("[warn] 前端未构建:先 cd webapp/frontend && npm install && npm run build")
     web.run_app(make_app(), port=8000)
 
 
