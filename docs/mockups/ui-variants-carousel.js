@@ -147,7 +147,7 @@ const VERSIONS=[
          ${genomeHTML(playerSlots[0])}
          <div style="font-size:11px;color:var(--dim);margin-bottom:10px">灰=锁死功能位 · 蓝=可选插槽</div>
          ${globalParamsHTML()}
-         <button class="go" id="startBtn">▶ 直播</button>
+         <button class="go" id="startBtn">▶ 开始</button>
        </div></aside>${centerHTML('horz')}${rightHTML()}`,
    transport:()=>`<span class="ticklabel" id="tickLabel">tick 0 / 450</span>
      <span id="status" style="color:var(--dim)">运行中</span>
@@ -159,7 +159,7 @@ const VERSIONS=[
        <div class="body">
          ${[0,1,2,3].map(f=>playerAccordion(f,{open:f===0})).join('')}
          ${globalParamsHTML()}
-         <button class="go" id="startBtn">▶ 直播</button>
+         <button class="go" id="startBtn">▶ 开始</button>
        </div></aside>${centerHTML('vert')}${rightHTML()}`,
    transport:()=>`<button class="pbtn run" id="playBtn">▶ 播放中</button>
      <span class="ticklabel" id="tickLabel">tick 0 / 450</span>
@@ -172,7 +172,7 @@ const VERSIONS=[
          ${[0,1,2,3].map(f=>playerAccordion(f,{pct:0.25})).join('')}
          ${globalParamsHTML()}
          <div class="row"><span>播放速度</span><input type="range" min="1" max="5" value="3" id="speedSlider" style="width:90px"></div>
-         <button class="go" id="startBtn">▶ 直播</button>
+         <button class="go" id="startBtn">▶ 开始</button>
        </div></aside>${centerHTML('vert')}${rightHTML()}`,
    transport:()=>`<button class="pbtn run" id="playBtn">▶ 播放中</button>
      <span class="ticklabel" id="tickLabel">tick 0 / 450</span>
@@ -184,7 +184,7 @@ const VERSIONS=[
        <div class="body">
          ${[0,1,2,3].map(f=>playerAccordion(f,{pct:0.25,compact:true})).join('')}
          ${globalParamsHTML()}
-         <button class="go" id="startBtn">▶ 直播</button>
+         <button class="go" id="startBtn">▶ 开始</button>
        </div></aside>${centerHTML('vert')}${rightHTML()}`,
    transport:()=>`<button class="pbtn run" id="playBtn">▶</button>
      <span class="ticklabel" id="tickLabel">tick 0 / 450</span>
@@ -192,7 +192,7 @@ const VERSIONS=[
 ];
 
 // ===== playback state (shared across versions) =====
-let tick=0,timer=null,running=false;
+let tick=0,timer=null,running=false,started=false;
 const setStatus=(t)=>{const e=document.getElementById("status");if(e)e.textContent=t;};
 const shareSeries=[[],[],[],[]],distinctSeries=[],n2Series=[];
 function step(){
@@ -201,11 +201,13 @@ function step(){
   tick+=3; if(tick>T){pause();setStatus("完成");}
 }
 function play(){
-  if(running)return; running=true;
+  if(running)return; running=true; started=true;
   clearInterval(timer); const speed=document.getElementById("speedSlider")?.value||3;
   timer=setInterval(step,Math.max(20,120-speed*15));
   const pb=document.getElementById("playBtn");
   if(pb){pb.textContent="⏸ 暂停";pb.classList.add("paused");}
+  const sb=document.getElementById("startBtn");
+  if(sb)sb.textContent="⟳ 重置";
   setStatus("运行中");
 }
 function pause(){
@@ -216,9 +218,12 @@ function pause(){
 }
 function reset(){
   tick=0; for(const s of shareSeries)s.length=0; distinctSeries.length=0; n2Series.length=0;
-  running=false; clearInterval(timer);
+  running=false; started=false; clearInterval(timer);
   const pb=document.getElementById("playBtn");
   if(pb){pb.textContent="▶ 播放中";pb.classList.remove("paused");}
+  const sb=document.getElementById("startBtn");
+  if(sb)sb.textContent="▶ 开始";
+  setStatus("未开始");
 }
 
 function updateReadouts(fr){
@@ -260,10 +265,12 @@ function showVersion(i){
   document.getElementById("vName").textContent=v.name;
   const dots=document.getElementById("vDots");
   dots.innerHTML=VERSIONS.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('');
-  setupCanvas(); play();
-  // rebind
-  const sb=document.getElementById("startBtn");if(sb)sb.onclick=()=>{reset();play();};
-  const pb=document.getElementById("playBtn");if(pb)pb.onclick=()=>running?pause():play();
+  setupCanvas(); reset(); drawFrame(makeFrame(0));   // static tick-0 frame, not running
+  // rebind: startBtn = 开始(首次)/ 重置(已开始); playBtn = 暂停/继续(仅已开始时)
+  const sb=document.getElementById("startBtn");if(sb)sb.onclick=()=>{
+    if(started){reset();drawFrame(makeFrame(0));}else{play();}};
+  const pb=document.getElementById("playBtn");if(pb)pb.onclick=()=>{
+    if(!started)return; running?pause():play();};
   const sp=document.getElementById("speedSlider");if(sp)sp.oninput=()=>{
     document.getElementById("speedInd").textContent="×"+sp.value; if(running){pause();play();}};
   document.getElementById("grid").addEventListener("click",onCanvasClick);
