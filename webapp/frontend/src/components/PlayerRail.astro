@@ -1,0 +1,22 @@
+---
+import PlayerConfig from "./PlayerConfig.astro";
+---
+<aside class="rail">
+  <h2><span>玩家配置</span></h2>
+  <div class="body" id="players">
+    <PlayerConfig faction={0} />
+    <PlayerConfig faction={1} />
+    <PlayerConfig faction={2} />
+    <PlayerConfig faction={3} />
+  </div>
+  <div class="body">
+    <h2 style="margin:8px 0 6px"><span>全局参数</span></h2>
+    <div class="row"><span>网格</span><input id="cfg-grid" value="128"></div>
+    <div class="row"><span>K</span><input id="cfg-K" value="64"></div>
+    <div class="row"><span>fill/格</span><input id="cfg-fill" value="20"></div>
+    <div class="row"><span>T (ticks)</span><input id="cfg-T" value="450"></div>
+    <div class="row"><span>seed</span><input id="cfg-seed" value="0"></div>
+    <div class="row"><span>z_max</span><input id="cfg-zmax" value="8.0"></div>
+    <button class="go" id="startBtn">▶ 开始</button>
+  </div>
+</aside>
