@@ -158,23 +158,25 @@ function renderLeaderboard(){
 // ---- draggable column resizers (left rail / right readout) ----
 function setupResizers(){
   const app=document.querySelector(".app");
-  function drag(el,varName,fromLeft){
+  function drag(el,varName,col){
     el.addEventListener("mousedown",(e)=>{
       e.preventDefault(); el.classList.add("drag");
-      const startX=e.clientX, start=parseInt(getComputedStyle(app).getPropertyValue(varName));
+      const startX=e.clientX, startW=app.children[col].offsetWidth;  // read actual rendered width
       const move=(ev)=>{
         const dx=ev.clientX-startX;
-        const w=Math.max(160,Math.min(560,start+(fromLeft?dx:-dx)));
+        const w=Math.max(160,Math.min(560,startW+(col===0?dx:-dx)));
         app.style.setProperty(varName,w+"px");
       };
       const up=()=>{el.classList.remove("drag");
         document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
-        line("shareChart",shareSeries,["#ff4d4d","#4d9bff","#3fd07f","#ffcc4d"],1.0);};  // charts re-fit to new width
+        line("shareChart",shareSeries,["#ff4d4d","#4d9bff","#3fd07f","#ffcc4d"],1.0);
+        line("divChart",[distinctSeries.map(v=>v/Math.max(1,...distinctSeries)),n2Series.map(v=>v/Math.max(1,...n2Series))],["#a371f7","#39c5cf"],1.0);
+      };
       document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
     });
   }
-  drag(document.getElementById("lresizer"),"--lw",true);
-  drag(document.getElementById("rresizer"),"--rw",false);
+  drag(document.getElementById("lresizer"),"--lw",0);   // col 0 = .rail
+  drag(document.getElementById("rresizer"),"--rw",4);   // col 4 = .read
 }
 
 // ---- init ----
