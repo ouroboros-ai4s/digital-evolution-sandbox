@@ -95,3 +95,59 @@ def test_engine_default_layout_unchanged():
     e = Engine(H=8, W=8, K=16, seed=0, device=DEV, fill_per_cell=10)
     bb0 = e.table.get_or_mint(BB0_TEMPLATE["layout"])
     assert int(e.world.strain_id[2, 2, 0]) == bb0
+
+
+def _four_distinct():
+    """Four layouts differing only in slot 0 (a legal mutable slot)."""
+    out = []
+    for letter in ("N0", "F4Nr1", "P_base", "P_hotspot"):
+        lay = _canonical(); lay[0] = letter
+        out.append(tuple(lay))
+    return out
+
+
+def test_init_factions_four_distinct_layouts():
+    t = StrainTable()
+    layouts = _four_distinct()
+    w = init_factions(8, 8, 16, DEV, t, fill_per_cell=10, n_fac=4, layouts=layouts)
+    centers = [(2, 2), (2, 6), (6, 2), (6, 6)]
+    seen_strains = set()
+    for fac, (cy, cx) in enumerate(centers):
+        expect = t.get_or_mint(layouts[fac])
+        assert int(w.strain_id[cy, cx, 0]) == expect      # fac-th center = fac-th layout
+        assert int(w.faction[cy, cx, 0]) == fac
+        seen_strains.add(int(w.strain_id[cy, cx, 0]))
+    assert len(seen_strains) == 4                          # four genuinely different strains
+
+
+def test_init_factions_layout_and_layouts_mutually_exclusive():
+    t = StrainTable()
+    with pytest.raises(ValueError, match="not both"):
+        init_factions(8, 8, 16, DEV, t, fill_per_cell=10,
+                      layout=BB0_TEMPLATE["layout"], layouts=_four_distinct())
+
+
+def test_init_factions_layouts_must_be_exactly_four():
+    t = StrainTable()
+    three = _four_distinct()[:3]
+    with pytest.raises(ValueError, match="exactly 4"):
+        init_factions(8, 8, 16, DEV, t, fill_per_cell=10, layouts=three)
+
+
+def test_init_factions_rejects_tampered_nth_layout():
+    t = StrainTable()
+    layouts = _four_distinct()
+    bad = list(layouts[2]); bad[1] = "N0"        # tamper faction-2's locked position
+    layouts = list(layouts)
+    layouts[2] = tuple(bad)
+    layouts = tuple(layouts)
+    with pytest.raises(ValueError, match="locked"):
+        init_factions(8, 8, 16, DEV, t, fill_per_cell=10, layouts=layouts)
+
+
+def test_engine_passes_layouts_through():
+    layouts = _four_distinct()
+    e = Engine(H=8, W=8, K=16, seed=0, device=DEV, fill_per_cell=10, layouts=layouts)
+    centers = [(2, 2), (2, 6), (6, 2), (6, 6)]
+    for fac, (cy, cx) in enumerate(centers):
+        assert int(e.world.strain_id[cy, cx, 0]) == e.table.get_or_mint(layouts[fac])
