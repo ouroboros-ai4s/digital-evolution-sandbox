@@ -1,0 +1,129 @@
+<!doctype html>
+<!-- V3 Enhanced mockup — standalone version with 4-player accordions, vertical legend,
+     speed slider, real-time faction percentages, and start/reset + pause/resume controls.
+     No auto-start. Throwaway scaffold for UI iteration. -->
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>DES UI — V3 增强版</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#c9d1d9; --dim:#8b949e;
+  --f0:#ff4d4d; --f1:#4d9bff; --f2:#3fd07f; --f3:#ffcc4d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+     font:13px/1.4 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:auto 1fr 320px;height:100vh}
+.rail{background:var(--panel);border-right:1px solid var(--line);
+      width:268px;overflow-y:auto}
+.rail h2{font-size:12px;letter-spacing:.05em;color:var(--dim);
+         text-transform:uppercase;margin:14px 12px 8px}
+.rail .body{padding:0 12px 16px}
+.genome{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-bottom:8px}
+.pos{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;
+     align-items:center;justify-content:center;font-size:9px;text-align:center;padding:1px}
+.pos.locked{background:#21262d;color:var(--dim)}
+.pos.slot{background:#1c2733;color:#79c0ff}
+.pos.slot select{background:#0d1117;border:0;color:#79c0ff;font-size:9px;width:100%;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
+.row input{background:#0d1117;border:1px solid var(--line);color:var(--txt);
+     border-radius:4px;padding:2px 6px;width:90px}
+.go{width:100%;margin-top:12px;padding:9px;background:#238636;border:0;border-radius:6px;
+    color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+
+.player{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;overflow:hidden}
+.player>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+     padding:8px 10px;background:#0d1117;font-weight:600}
+.player>summary::-webkit-details-marker{display:none}
+.player>summary .dot{width:11px;height:11px;border-radius:3px;flex:none}
+.player>summary .pct{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums;font-weight:400}
+.player>summary .chev{color:var(--dim);transition:transform .15s}
+.player[open]>summary .chev{transform:rotate(90deg)}
+.player .pbody{padding:8px 10px;border-top:1px solid var(--line)}
+
+.stage{display:flex;flex-direction:column;min-width:0}
+.stagehead{display:flex;align-items:center;gap:14px;padding:10px 16px;
+           border-bottom:1px solid var(--line)}
+.stagehead .title{font-weight:600}
+.legend{margin-left:auto;font-size:11px;color:var(--dim);
+        display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;
+          vertical-align:-1px}
+.legend .lrow{display:flex;align-items:center;gap:4px;min-width:140px}
+.legend .lrow .lpct{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--txt)}
+.canvaswrap{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;min-height:0}
+#grid{image-rendering:pixelated;background:#000;border:1px solid var(--line);
+      width:min(72vh,100%);height:min(72vh,100%);aspect-ratio:1;cursor:crosshair}
+.transport{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line)}
+.transport .pbtn{background:#21262d;border:1px solid var(--line);color:var(--txt);
+     border-radius:6px;padding:5px 14px;cursor:pointer;font-size:14px;min-width:84px}
+.transport .pbtn.run{border-color:#2ea043;color:#3fb950}
+.ticklabel{font-variant-numeric:tabular-nums;color:var(--dim);min-width:120px}
+.read{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:14px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.card{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.card .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.card .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.read h3{font-size:11px;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;margin:16px 0 6px}
+.chart{width:100%;height:90px;background:#0d1117;border:1px solid var(--line);border-radius:6px}
+.lead{list-style:none;padding:0;margin:0;font-size:12px}
+.lead li{display:flex;align-items:center;gap:6px;padding:3px 0}
+.lead .seq{font-family:ui-monospace,monospace;font-size:10px;color:var(--dim);
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <h2><span>玩家配置</span></h2>
+    <div class="body" id="players"></div>
+    <div class="body">
+      <h2 style="margin:8px 0 6px"><span>全局参数</span></h2>
+      <div class="row"><span>网格</span><input value="128"></div>
+      <div class="row"><span>K</span><input value="64"></div>
+      <div class="row"><span>fill/格</span><input value="20"></div>
+      <div class="row"><span>T (ticks)</span><input value="450"></div>
+      <div class="row"><span>seed</span><input value="0"></div>
+      <div class="row"><span>z_max</span><input value="8.0"></div>
+      <div class="row"><span>播放速度</span><input type="range" min="1" max="5" value="3" id="speedSlider" style="width:90px"></div>
+      <button class="go" id="startBtn">▶ 开始</button>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="stagehead">
+      <span class="title">验收之眼 — 128×128 世界</span>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="canvaswrap">
+      <canvas id="grid" width="128" height="128"></canvas>
+    </div>
+    <div class="transport">
+      <button class="pbtn run" id="playBtn">▶ 播放中</button>
+      <span class="ticklabel" id="tickLabel">tick 0 / 450</span>
+      <span style="margin-left:auto;color:var(--dim)">速度 <b id="speedInd">×3</b></span>
+    </div>
+  </main>
+
+  <aside class="read">
+    <div class="cards">
+      <div class="card"><div class="k">tick</div><div class="v" id="m-tick">0</div></div>
+      <div class="card"><div class="k">总个体</div><div class="v" id="m-total">0</div></div>
+      <div class="card"><div class="k">占用格</div><div class="v" id="m-occ">0</div></div>
+      <div class="card"><div class="k">活株</div><div class="v" id="m-distinct">0</div></div>
+      <div class="card"><div class="k">N2</div><div class="v" id="m-n2">0</div></div>
+      <div class="card"><div class="k">d_max</div><div class="v" id="m-dmax">0</div></div>
+    </div>
+    <h3>阵营占比(主判决曲线 → 全贴 0.25=共存)</h3>
+    <canvas class="chart" id="shareChart"></canvas>
+    <h3>多样性(distinct / N2)</h3>
+    <canvas class="chart" id="divChart"></canvas>
+    <h3>主导株排行(top 5)</h3><ul class="lead" id="lead"></ul>
+    <h3>该格明细(点格子)</h3>
+    <ul class="lead" id="cellDetail"><li style="color:var(--dim)">点中心 canvas 的格子查看</li></ul>
+  </aside>
+</div>
+<script src="v3-enhanced.js"></script>
+</body>
+</html>
