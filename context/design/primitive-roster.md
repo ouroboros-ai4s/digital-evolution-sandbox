@@ -5,7 +5,7 @@
 
 ## OPEN
 
-- **[OPEN-1] 突变选择机制**: ✅已解。逐条手写前驱谱(`from:` inline,与 prey 同构),三结构律守红线(粒度/阶梯/非对称),值认结构邻近不认强弱。
+- **[OPEN-1] 突变选择机制**: ✅已解(2026-06-24 重订)。A 池覆写列表 = backbone 上下文门控谓词 $\{\text{株}:n_{\text{locked}}(\text{chan})\ge\theta_{\text{chan}}\}$——某 A 只在 backbone 已充分该通道专化的物种内、由 gran 匹配的可变插槽突变涌现。「建难」由门控自然涌现(极端 F 变体只在 F-重株里冒头),非手写阶梯。**废弃**:逐条点名前驱、「非对称律/阶梯/破易建难」(均非用户设计的概念)。
 - **[OPEN-2] Z 单字母狙击猎物清单**: ✅已解,改特征阈值(见 Z 池末三条)。
 - **[OPEN-3] backbone 大幅扩充**: 长度待定(给「主体覆写 N」提供更多 N0 槽)。基元 config 与此无关。
 - **A 池(24)**: 8 个 FPZ 精选拷贝 + 16 专属(甲新通道/乙极端变体)。Phase 2 设计中,新通道须过闸。
@@ -15,7 +15,7 @@
 ## N 池 — 中性 filler (rank 0, 8)
 
 仅产 vis∈[0,1](可见度,影响被 N-猎对抗命中概率),无 f/z/p。
-> from(前驱谱):$N_{res}=\{N0,N1,N2,N3,N5,N6\}$(残基)、$N_{mtf}=\{N4,N7\}$(motif)。中性互漂仅同粒度 N 互换;N0 额外是功能丧失唯一落点(任意 F/P/Z→N0 单步,见末尾非对称律)。
+> from(前驱谱):$N_{res}=\{N0,N1,N2,N3,N5,N6\}$(残基)、$N_{mtf}=\{N4,N7\}$(motif)。中性互漂仅同粒度 N 互换;N0 额外是功能丧失唯一落点(任意 F/P/Z→N0 单步,功能丧失落点)。
 
 - **N0**: 正典零位 filler,BB0 六插槽初始值,vis 基线。
   - $\text{vis}=0.20,\; f=z=p_{\text{add}}=0,\; \text{spectrum}=\varnothing,\; \text{gran}=\text{residue}$
@@ -42,20 +42,29 @@
   - $\text{vis}=0.10,\; f=z=p_{\text{add}}=0,\; \text{gran}=\text{motif}$
   - from: $(N_{mtf}\setminus\{N7\})\cup\{\text{gran}=\text{motif}\ni F/P/Z\}$ — motif 块互换
 
+### 弱 FPZ 骨架料子表(2026-06-24 加;backbone-eligible 标记,不占 N8 名额、不改原 family/rank)
+
+> 用户裁定(2026-06-24):无视疑似私货,按量级直接取各池最低档当骨架可坐料。这 6 条仍留在原 F/P/Z 池、保留原 rank(rank 是 $q=\text{aff}$ 的输入,改成 rank0 会污染突变谱——正确性问题,故不动),仅在此登记 backbone-eligible,把「可坐 backbone 的近中性料集合」从 N8 扩为 N8 + 本子表(供 OPEN-3「更多骨架槽」)。
+
+- **FDRIFT** (F, f=0.15) / **F4Nr1** (F, f=0.30) — F 池最低两档
+- **P_base** (P, rate=μ) / **P_slow_drift** (P, rate=μ) — 唯二零加码纯地板
+- **BroadSweep** (Z, z=0.40) / **Scatter Nip** (Z, z=0.40) — Z 池最低 z
+  - ⚠ Z 坐 backbone = 永久开火战士(非低扰动 filler),与 F/P 语气不同;按用户「全 6 条含 Z」纳入,数值轮可复核去留。
+
 ## F 池 — 繁衍 (rank 1, 8)
 
 吐 f(繁衍比例) / dirs(波及格) / p_leave(迁出率) + T(周期)。后代=Binom(count,f) 散到 dirs;迁出=Binom(count,p_leave) 消失。堆叠 $f=1-\prod(1-f_i)$。
-> from(前驱谱):获得繁衍功能 = 从 N_res 或同族邻档单步可达(Δrank≤1)。residue 档前驱 = $\{N_{res}\}\cup\{\text{同 gran 的 F-residue 邻档}\}$;motif/相位档(FBURST)前驱含 motif N。**禁从 rank≥3(Z)直接变出 F**(Δrank≥2 跳须经 P_zscan_invert 等中转,见 A 池/非对称律)。
+> from(前驱谱):获得繁衍功能 = 从 N_res 或同族邻档单步可达(Δrank≤1)。residue 档前驱 = $\{N_{res}\}\cup\{\text{同 gran 的 F-residue 邻档}\}$;motif/相位档(FBURST)前驱含 motif N。**禁从 rank≥3(Z)直接变出 F**(Δrank≥2 跳须经 P_zscan_invert 等中转,见 A 池)。
 
 - **F4Nr1**: 最弱档脉冲,4 邻随机 1 格,BB0 可选起点。
   - $f=0.30,\; \text{dirs}=\{(-1,0)\}\,(\text{1 rand of 4-nbr}),\; p_{\text{leave}}=0.05,\; T=4$
   - from: $N_{res}\cup\{\text{F4Nr3}\}$ — N 漂出最弱繁衍 / 强档退一阶(降档易)
 - **F4Nr4**: 标准强档,四方向全 4 格全向扩张,BB0 locked@pos1。
   - $f=0.50,\; \text{dirs}=\{(-1,0),(1,0),(0,-1),(0,1)\},\; p_{\text{leave}}=0.15,\; T=5$
-  - from: $\{\text{F4Nr3},\text{FCLUMP}\}$ — 仅由邻近繁衍档升/侧变,**不直接由 N 一步到强档**(建难)
+  - from: $\{\text{F4Nr3},\text{FCLUMP}\}$ — 由邻近繁衍档升/侧变
 - **F4Nr3**: 中强档,4 邻随机 3 格(hash 留缺口)。
   - $f=0.40,\; \text{dirs}=\{\text{3 rand of 4-nbr, by seq-hash}\},\; p_{\text{leave}}=0.12,\; T=5$
-  - from: $\{\text{F4Nr1},\text{F4Nr4}\}$ — 阶梯中继,上下档互达
+  - from: $\{\text{F4Nr1},\text{F4Nr4}\}$ — 同族繁衍档互变
 - **FSTACK**: 守孤岛,原地堆叠零外扩,垫高 count 抢满格名额。
   - $f=0.60,\; \text{dirs}=\{(0,0)\},\; p_{\text{leave}}=0.00,\; T=3$
   - from: $N_{res}\cup\{\text{FCLUMP}\}$ — N 漂出囤积型 / 团块收敛为原地
@@ -75,14 +84,14 @@
 ## P 池 — 突变 (rank 2, 12)
 
 吐 p(x)(率,$\text{rate}=\min(p_{\max},\mu+p_{\text{add}})$,$\mu=0.01$,$p_{\max}=0.08$) + spectrum(变成谁,由家族距离 aff 0.70/0.25/0.05 算) + T。逐个体:Binom(后代,p_x) 个突变,各挑插槽+从谱抽字母覆写。堆叠 $p_x=\max(\mu,1-\prod(1-p_i))$。
-> from(前驱谱):P 族 rank2,获得突变功能从 $N_{res}$ 或邻 rank 单步(F/Z 均 Δrank1)。**rate 升档受阶梯约束**(高 rate 档不由 N 直达,须经中 rate 档);rate 降回 μ 单步易达(破易)。谱偏置档(fscan/zscan/neutral_sink)前驱含对应目标族邻基元 = 谱倾向源于结构邻近,非手写强弱。
+> from(前驱谱):P 族 rank2,获得突变功能从 $N_{res}$ 或邻 rank 单步(F/Z 均 Δrank1)。谱偏置档(fscan/zscan/neutral_sink)前驱含对应目标族邻基元 = 谱倾向源于结构邻近。
 
 - **P_base**: 中性基线,无加码纯 μ 漂变,谱全向。
   - $p_{\text{add}}=0,\; \text{rate}=\mu,\; q(t)\propto\text{aff}(\text{fam}(x),\text{fam}(t)),\; T=1$
-  - from: $N_{res}\cup\{\text{P\_slow\_drift},\text{P\_entropy\_brake}\}$ — N 漂出最低突变档 / 高档降回基线(破易)
+  - from: $N_{res}\cup\{\text{P\_slow\_drift},\text{P\_entropy\_brake}\}$ — N 漂出最低突变档 / 同族档互变
 - **P_hotspot**: AID 热点加码,中速,谱全向提通量。
   - $p_{\text{add}}=0.05,\; \text{rate}=0.06,\; q(t)\propto\text{aff}(\cdot),\; T=3$
-  - from: $\{\text{P\_balanced},\text{P\_burst\_lite}\}$ — 仅由邻近中-高 rate 档升/降,不由 N 直达(建难)
+  - from: $\{\text{P\_balanced},\text{P\_burst\_lite}\}$ — 由邻近 P 档升/侧变
 - **P_aic**: AID-core 保守加码,谱锐化压同族近邻,定向不离族。
   - $p_{\text{add}}=0.03,\; \text{rate}=0.04,\; q(t)\propto\text{aff}(\cdot)^{2},\; T=2$
   - from: $\{\text{P\_base},\text{P\_balanced}\}$ — 由全向档锐化谱(获得定向性)
@@ -109,15 +118,15 @@
   - from: $N_{res}\cup\{\text{P\_base}\}$ — N 漂出慢钟档 / 基线改 T(同 rate 仅时间结构变)
 - **P_burst_lite**: 周期热点脉冲,加码达本池上限,慢钟相位窗突变爆发。
   - $p_{\text{add}}=0.07,\; \text{rate}=0.08,\; q(t)\propto\text{aff}(\cdot),\; T=6$
-  - from: $\{\text{P\_hotspot},\text{P\_balanced}\}$ — 仅由高 rate 档获相位调制(建难,顶档不由 N 直达)
+  - from: $\{\text{P\_hotspot},\text{P\_balanced}\}$ — 由邻近 P 档获相位调制
 - **P_balanced**: 中速标准加码全向,hotspot 与 base 间稳态工作档。
   - $p_{\text{add}}=0.04,\; \text{rate}=0.05,\; q(t)\propto\text{aff}(\cdot),\; T=4$
-  - from: $\{\text{P\_base},\text{P\_aic},\text{P\_hotspot}\}$ — rate 阶梯中继,上下档互达
+  - from: $\{\text{P\_base},\text{P\_aic},\text{P\_hotspot}\}$ — 同族 P 档互变
 
 ## Z 池 — 对抗 (rank 3, 16)
 
 吐 z(交换比) + prey(猎物清单) + T。$\text{kills}=\min(b,a\cdot z)$,自损 $\text{kills}/z$,快照同时结算。高 z↔窄清单(反相关,防无敌)。多条非传递克制环。
-> from(前驱谱):Z 族 rank3,**入口只经 P_zscan(rank2 邻)或 A 池 Z 变体(rank4 邻)**——禁 N(Δrank3)/F(Δrank2)直达。z 升档+清单收窄受阶梯约束:通才(宽清单)由 P_zscan 变出,motif 专才由通才特化,长 motif/单字母狙击只由邻近窄档再特化(建最难)。清单放宽/z 降回单步易达(破易)。**前驱认 z 档位/清单粒度的结构邻近,不认谁猎杀效率高。**
+> from(前驱谱):Z 族 rank3,**入口只经 P_zscan(rank2 邻)或 A 池 Z 变体(rank4 邻)**——N(Δrank3)/F(Δrank2)非邻不直达。通才(宽清单)由 P_zscan 变出,motif 专才由通才特化,长 motif/单字母狙击由邻近窄档再特化。**前驱认 z 档位/清单粒度的结构邻近。**
 
 - **BroadSweep**: 通才,最低 z 最宽清单(两整族),克制链1基座。BB0 locked@pos5。
   - $z=0.40,\; \text{prey}=\{F,Z\},\; T=5$
@@ -151,7 +160,7 @@
   - from: $\{\text{Ghost Spike},\text{Scatter Nip}\}$ — N 猎档特化为 N-motif 专才
 - **Lineage Reaper**: 长 F-motif 专才,链2第二环,猎≥3字母繁衍 motif。
   - $z=0.78,\; \text{prey}=\{\ell\ge3\text{ motif}\ni F\},\; T=6$
-  - from: $\{\text{Ambush Coil}\}$ — 由 F-motif 专才升为长 motif(窄化升档只由邻档,建难)
+  - from: $\{\text{Ambush Coil}\}$ — 由 F-motif 专才特化为长 motif(同 gran 邻档)
 - **Coil Cinch**: 长 Z-motif 专才,链1第四环,≥3字母战士 motif。
   - $z=0.80,\; \text{prey}=\{\ell\ge3\text{ motif}\ni Z\},\; T=8$
   - from: $\{\text{Clade Snare}\}$ — Z-motif 专才升为长 motif
@@ -166,94 +175,99 @@
   - from: $\{\text{Idiotype Lance}\}$ — 长 P-motif 特化为单字母 P 狙击
 - **Mirror Fang**: 单字母 Z 狙击,链1收口,猎宽谱通才对抗基元(特征阈值)。
   - $z=1.00,\; \text{prey}=\{s:\text{fam}(s)=Z \wedge z_s\le0.45 \wedge |\text{prey}_s|\ge2\},\; T=8$
-  - from: $\{\text{Coil Cinch}\}$ — 长 Z-motif 特化为单字母 Z 狙击(顶档只由邻档,建最难)
+  - from: $\{\text{Coil Cinch}\}$ — 长 Z-motif 特化为单字母 Z 狙击(同 gran 邻档)
 
 ## A 池 — 突变可达极端变体 (rank 4, 24)
 
 全部只产 f/p/z(无第五通道;功能只有 F/P/Z 三种)。全部突变专属(骨架坐不上,只能突变出)。极端区间: f≤0.85 / z≤1.5(窄清单守反相关) / p_add≤0.34(rate cap 0.35)。
-> from(前驱谱):A 是突变阶梯顶点,前驱按**功能档位**(非家族 rank)取——每个 A 变体只由其 copy-of 源 / 对应功能的最强常规档 + 同 A 邻近变体「推向极端」一步可达。**禁从 N 一步变出 A**(顶点须经常规顶档中转,建最难)。功能丧失漂回 N0 仍单步可达(破易对称,见 N0 from 含全体产 f/p/z 株)。
+> 覆写列表(2026-06-24 重订,替代逐条点名前驱):某 A 的覆写列表 = backbone 上下文门控谓词 $\{\text{株}:n_{\text{locked}}(\text{chan}(A))\ge\theta_{\text{chan}(A)}\}$——即只在 backbone-locked 组成里**该 A 所产通道对应族**已达数量阈 θ 的物种内,由一个 gran 匹配的可变插槽突变涌现。「建难」由门控自然涌现(极端 F 变体只在 F-重株里冒头,无需手写阶梯/禁 N)。同通道 A 共用同一覆写门,彼此差异全在各自 formula。θ 数值轮占位。**copy-of 仅血统注释(标该 A 照哪条常规档放大),不进覆写逻辑(突变核不读 copy-of)。**
 
 ### 乙1 — 8 个 FPZ 精选拷贝(escalation,带 copy-of 理由)
 
 - **Apex Bloom**: 最强繁衍爆点,四方向全向扩张推到极限,源格高自损。[copy-of F4Nr4]
   - $f=0.85,\; \text{dirs}=\text{4-nbr},\; p_{\text{leave}}=0.20,\; T=4$
-  - from: $\{\text{F4Nr4},\text{Lance Front},\text{F\_NOVA}\}$ — copy-of 源推极端 / 邻近极端繁衍 A 侧变
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Ember Drip**: 废档脉冲,极低 f 单向慢钟几乎不扩张(下坠样本)。[copy-of F4Nr1]
   - $f=0.05,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 of 4-nbr}),\; p_{\text{leave}}=0.04,\; T=9$
-  - from: $\{\text{F4Nr1},\text{F\_TRICKLE}\}$ — copy-of 源推向地板 / 邻近极弱繁衍 A
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Bastion Pile**: 极限囤积,原地零外扩高 f 垫满 count 死守名额。[copy-of FSTACK]
   - $f=0.85,\; \text{dirs}=\{(0,0)\},\; p_{\text{leave}}=0.00,\; T=3$
-  - from: $\{\text{FSTACK},\text{Apex Bloom}\}$ — copy-of 源推极端 / 全向极端收敛为原地
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Apex Fang**: 单字母 Z 狙击 z 顶到极限,最窄清单换最高效率。[copy-of Mirror Fang]
   - $z=1.50,\; \text{prey}=\{s:\text{fam}(s)=Z\wedge z_s\le0.45\wedge|\text{prey}_s|\ge2\},\; T=9$
-  - from: $\{\text{Mirror Fang},\text{Predator Lock}\}$ — copy-of 源推极端 / 邻近极端 Z 杀手
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Pan Sweep**: 三族通吃宽扫(F∪Z∪P),z 仍压低(宽谱代价=高自损)。[copy-of BroadSweep]
   - $z=0.50,\; \text{prey}=\{F,Z,P\},\; T=6$
-  - from: $\{\text{BroadSweep},\text{Sweep Surge}\}$ — copy-of 源放宽清单 / 邻近宽扫 A
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Hotspot Amp**: AID 热点加码推到上限,全向谱高通量。[copy-of P_hotspot]
   - $p_{\text{add}}=0.30,\; \text{rate}=0.31,\; q(t)\propto\text{aff}(\cdot),\; T=3$
-  - from: $\{\text{P\_hotspot},\text{P\_cascade}\}$ — copy-of 源推 rate 上限 / 邻近极端 P
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Sink Cascade**: 高率功能丧失,谱锁投 N 族快速漂回中性(率强产出垃圾)。[copy-of P_neutral_sink]
   - $p_{\text{add}}=0.25,\; \text{rate}=0.26,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[\text{fam}(t)=N],\; T=3$
-  - from: $\{\text{P\_neutral\_sink}\}\cup N_{res}$ — copy-of 源推高率 / 投 N 偏置源于 N 族邻近
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Glacial Drift**: 极慢全向漂变,零加码 + 最慢钟近不动(废档慢端)。[copy-of P_slow_drift]
   - $p_{\text{add}}=0,\; \text{rate}=\mu,\; q(t)\propto\text{aff}(\cdot),\; T=12$
-  - from: $\{\text{P\_slow\_drift},\text{P\_frozen}\}$ — copy-of 源推向最慢钟 / 邻近近锁 A
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 
 ### 乙2 — 8 个 A 原生极端变体
 
 - **F_NOVA**: 极端强爆-长静息,爆窗一次性向四邻投 0.85 但 50% 自迁出露背。
   - $\text{dirs}=\text{4-nbr},\; p_{\text{leave}}=0.50,\; T=2;\;(T-\text{birth})\bmod 20<1\Rightarrow f=0.85,\text{ else }0.05$
-  - from: $\{\text{FBURST},\text{Apex Bloom}\}$ — 相位档推向极端爆窗 / 极端全向获相位
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **F_TRICKLE**: 绝对地板繁衍,f=0.02 单向慢钟效率近零(阶梯最底)。
   - $f=0.02,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 of 4-nbr}),\; p_{\text{leave}}=0.02,\; T=8$
-  - from: $\{\text{F4Nr1},\text{Ember Drip}\}$ — 最弱常规档 / 废档脉冲推向绝对地板
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **F_SCATTER**: 奇异超薄云团,低 f 随机 3 格 + 最高迁出 0.60 清空源格成移动飞地。
   - $f=0.12,\; \text{dirs}=\{\text{3 of 4-nbr by hash}\},\; p_{\text{leave}}=0.60,\; T=3$
-  - from: $\{\text{FDRIFT},\text{F\_TRICKLE}\}$ — 高迁出漂移档推向极端迁出
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Predator Lock**: 长 Z-motif 专杀的杀手,z=1.45 守最窄长 motif(克制链收口)。
   - $z=1.45,\; \text{prey}=\{\ell\ge3\text{ motif}\ni Z\},\; T=9$
-  - from: $\{\text{Coil Cinch},\text{Apex Fang}\}$ — 长 Z-motif 专才推极端 z / 邻近极端 Z 杀手
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Void Bite**: 破隐身流,只瞄低 vis 中性,命中按 (1−vis) 加权,专罚盲区策略。
   - $z=0.95,\; \text{prey}=\{s:\text{fam}(s)=N\wedge vis_s\le0.20\},\; p_{\text{hit}}=\tfrac1L\sum_i(1-vis_i),\; T=5$
-  - from: $\{\text{Ghost Spike},\text{Frame Pincer}\}$ — 隐位 N 猎档推向极端低 vis 阈
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **P_cascade**: 双位点级联,单次事件覆写 2 插槽(SHM 连发),高率全向。
   - $p_{\text{add}}=0.28,\; \text{rate}=0.29,\; q(t)\propto\text{aff}(\cdot),\; \text{2 slots/event},\; T=2$
-  - from: $\{\text{P\_burst\_lite},\text{Hotspot Amp}\}$ — 高 rate 档推向双位点级联
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **P_crossclan_surge**: 跨族大跳,谱只投远族(|Δrank|≥2,亲和 0.05 罕跳)穿鞍点。
   - $p_{\text{add}}=0.20,\; \text{rate}=0.21,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[|\Delta\text{rank}|\ge2],\; T=4$
-  - from: $\{\text{P\_loopswap\_lite}\}$ — 相邻族跳跃档推向远族大跳(谱拓宽一阶)
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **P_frozen**: 近锁突变,零加码 + 谱高阶幂锐化锁同族(几乎只自环)。
   - $p_{\text{add}}=0,\; \text{rate}=\mu,\; q(t)\propto\text{aff}(\cdot)^{4},\; T=8$
-  - from: $\{\text{P\_entropy\_brake},\text{Glacial Drift}\}$ — 熵刹车推向近锁 / 慢端 A 锐化谱
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 
 ### 甲 — 8 个 A 原生极端变体(补满 24,均产 f/p/z)
 
 - **F8Ar1**: 最快钟搅动机,单随机格中 f 但 T2 极速(churn 引擎持续薄撒)。
   - $f=0.25,\; \text{dirs}=\{\text{1 rand of 4-nbr/tick}\},\; p_{\text{leave}}=0.10,\; T=2$
-  - from: $\{\text{FDRIFT},\text{F4Nr1}\}$ — 漂移档推向极速 churn
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Lance Front**: 极限楔形锋线,单固定方向(hash 锁)f=0.80,高迁出露背。
   - $f=0.80,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 fixed}),\; p_{\text{leave}}=0.30,\; T=4$
-  - from: $\{\text{FFRONT},\text{Apex Bloom}\}$ — 锋线常规档推向极限 f / 极端繁衍定向化
+  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Ambush Venom**: F-motif 专杀强档,z=1.30 守最窄繁衍 motif 清单。
   - $z=1.30,\; \text{prey}=\{\text{motif}\ni F\},\; T=7$
-  - from: $\{\text{Ambush Coil},\text{Lineage Reaper}\}$ — F-motif 专才推向极端 z
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Sweep Surge**: 极端低-z 快钟通才,猎 F∪P 但 z 仅 0.45(宽=高自损,守反相关)。
   - $z=0.45,\; \text{prey}=\{F,P\},\; T=3$
-  - from: $\{\text{BroadSweep},\text{Pan Sweep}\}$ — 通才推向快钟极端 / 三族通吃收窄
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Nip Whisper**: 废档对抗,z=0.15 几乎不划算,瞄暴露中性按 vis 加权(下坠端)。
   - $z=0.15,\; \text{prey}=\{N\},\; p_{\text{hit}}=\tfrac1L\sum_{i\in N}vis_i,\; T=3$
-  - from: $\{\text{Scatter Nip}\}$ — N 猎通才推向废档下坠(z 降回易达)
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **Coil Null**: 废档 Z 猎手,z=0.20 慢钟瞄整 Z 族,猎物稀少即自损饿死。
   - $z=0.20,\; \text{prey}=\{Z\},\; T=8$
-  - from: $\{\text{Attrition Bite}\}$ — 整 Z 族猎手推向废档下坠
+  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **P_zscan_invert**: 攻击转扩张,谱反投 F 族(获得对抗→获得繁衍),中档加码。
   - $p_{\text{add}}=0.10,\; \text{rate}=0.11,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[\text{fam}(t)=F],\; T=4$
-  - from: $\{\text{P\_zscan},\text{P\_fscan}\}$ — zscan 谱取向翻转投 F / fscan 加码升档
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 - **P_stutter**: 伪突变废档,率推到上限但谱高阶幂锐化近自环(高率零产出)。
   - $p_{\text{add}}=0.32,\; \text{rate}=0.33,\; q(t)\propto\text{aff}(\cdot)^{4},\; T=2$
-  - from: $\{\text{P\_aic},\text{P\_frozen}\}$ — 锐化谱档推向高率零产出
+  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
 
 ## 覆写列表 (overwrite/predecessor list)
 
-✅ 已下放为每个基元 config 内的 `from:` 行(与 Z 池 `prey` 同构,inline)。各池头一段共用前驱律,逐条 from = 谓词集 + 溯源理由。三条结构律守「无私货」:① 粒度必配(residue↔residue / motif↔motif);② rank/功能档阶梯(Δrank≤1 或邻档,禁 N 直达顶点);③ **非对称(破易建难)**:功能丧失→N0 单步,功能获得/升档受阶梯约束。前驱认结构邻近,不认强弱。
+✅ 两种形态(2026-06-24 重订):
+
+- **A 池(24)** = backbone 上下文门控谓词 $\{\text{株}:n_{\text{locked}}(\text{chan})\ge\theta_{\text{chan}}\}$,inline 在每条 A 的 `覆写:` 行。同通道共用同一门,差异在各自 formula。「建难」由门控涌现(极端变体只在该通道已专化的物种内冒头),非手写阶梯。
+- **N/F/P/Z 池** 仍保留各自 `from:` 行(中性互漂 / 功能获得方向),为后续设计的参考线,非红线判据。
+
+**废弃**(均非用户设计的概念,2026-06-24 删):逐条点名前驱当红线、「三结构律(粒度/阶梯/非对称)」、「破易建难非对称律」、对称性。粒度配对(residue↔residue / motif↔motif)是突变核机制本身,不需另立为律。
