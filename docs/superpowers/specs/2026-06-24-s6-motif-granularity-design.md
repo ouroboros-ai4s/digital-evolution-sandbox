@@ -20,7 +20,7 @@ Two settled rulings this spec encodes (both already in the roster/design, not in
 ## 3. Architecture
 
 ### 3.1 `gran` registry property
-Add `GRAN = {letter: "residue" | "motif"}` to `registry.py`, one entry per primitive (the roster declares it per-entry). v1's 6 letters are all `residue`. A motif letter additionally declares its span length `MOTIF_LEN = {letter: N}` (intrinsic to the primitive — the roster's `{motif}` vs `{ℓ≥3 motif}` distinction is a length difference between *different* motif primitives, not a mutable property).
+Add `GRAN = {letter: "residue" | "motif"}` to `registry.py`, one entry per primitive. The roster tags `gran` explicitly only for N0–N7; all current F/P/Z/A primitives are `residue` by single-position occupancy (per the §3.2 encoding, a letter that never repeats across consecutive positions is a residue). Motif `gran`/`MOTIF_LEN` tags for new motif primitives arrive with each primitive's later spec (consistent with §7's "full 68-letter tables out of scope"). A motif letter additionally declares its span length `MOTIF_LEN = {letter: N}` (intrinsic to the primitive — the roster's `{motif}` vs `{ℓ≥3 motif}` distinction is a length difference between *different* motif primitives, not a mutable property).
 
 ### 3.2 Motif encoding: repeated-letter + derived blocks (ponytail-chosen, HOW-3)
 A motif occupying N positions = the **same motif-letter repeated across N consecutive positions** in the flat-16 layout. The layout stays `tuple[str]` of 16; `mutable`/`fold`/`validate_bb0_layout`/world geometry are byte-identical. A derived pass `motif_blocks(layout) -> [(start, end, letter)]` groups runs of the same `gran=="motif"` letter into blocks; residue letters (incl. N0) are always singletons. Nothing stored in the frozen Phenotype; nothing to keep in sync.
@@ -28,13 +28,13 @@ A motif occupying N positions = the **same motif-letter repeated across N consec
 > Rejected (over-engineering): a stored group-map (derivable → don't store); a variable-length layout tuple (breaks position-indexed `fold` sets + the `len==16` invariant).
 
 ### 3.3 Mutation core respects gran (the foundational change to `_mutation_outcomes`)
-- **Spectrum pre-filter**: in `_spectrum_for(letter)`, restrict targets to `gran(target) == gran(letter)` (residue sources → residue targets; motif → equal-length motif targets). One mask line.
+- **Spectrum pre-filter**: in `_spectrum_for(letter)`, restrict targets to `gran(target) == gran(letter) AND (gran(letter) == "residue" OR MOTIF_LEN(target) == MOTIF_LEN(letter))` (residue sources → residue targets; motif → **equal-length** motif targets — gran-match alone would wrongly permit a 2-position motif → 3-position `ℓ≥3` motif, since the roster has both lengths coexisting). Two predicate terms.
 - **Block overwrite**: in `_mutation_outcomes`, when the chosen mutable slot lies inside a motif block, the outcome overwrites the **whole block** atomically to the new (equal-length) motif letter; a residue slot overwrites singly. Equal-length guarantees the 16-position layout is preserved.
 
-### 3.4 `n_locked(chan)` counting (structural readout)
-Compute at mint, in `phenotype()` or a registry helper: iterate `motif_blocks` over the backbone-locked positions, count **blocks** whose primitive family == chan (F/P/Z), a motif block counting as 1 regardless of span (`primitive-roster.md` OPEN-1 ②). N never counts. Store as 3 small CPU-side ints on the strain. For the default BB0 this is F:1/P:1/Z:1 (unchanged, already cross-referenced in design.md).
+### 3.4 `n_locked(chan)` counting (structural readout, computed on demand)
+A helper that iterates `motif_blocks` over the backbone-locked positions and counts **blocks** whose primitive family == chan (F/P/Z), a motif block counting as 1 regardless of span (`primitive-roster.md` OPEN-1 ②). N never counts. For the default BB0 this is F:1/P:1/Z:1 (unchanged, already cross-referenced in design.md). **Not stored** on the strain: n_locked is a backbone-fixed species constant, and its only consumer (the §6 relabel-invariance audit) recomputes it — storing 3 ints per strain that nothing reads is dead state. Compute on demand from `motif_blocks` over the 16 locked positions (trivial).
 
-> **Scope honesty**: n_locked was originally the input to the A-pool overwrite gate. The roadmap **de-gates A** (S8: A reachable by pure affinity spectrum, gate retired) → n_locked has **no mutation consumer**. S6 still computes it as a cheap structural readout (3 ints, used by the relabel-invariance audit and available for the future asymmetric-backbone role system), but does NOT wire it into any gate. If you'd rather not compute an unused value, n_locked can be dropped from S6 entirely with zero impact on the default game — flagged as a trim option for the plan phase.
+> **Scope honesty**: n_locked was originally the input to the A-pool overwrite gate. The roadmap **de-gates A** (S8: A reachable by pure affinity spectrum, gate retired) → n_locked has **no mutation consumer**. S6 keeps it only as an on-demand structural readout (recomputed by the relabel-invariance audit, and available for the future asymmetric-backbone role system); it does NOT wire into any gate and is NOT stored. If you'd rather not compute it at all, n_locked can be dropped from S6 entirely with zero impact on the default game — flagged as a trim option for the plan phase.
 
 ### 3.5 Predicate-bit encoding scheme (resolves the 64-bit overflow; foundation for S1/S3/S8)
 `feature_mask`/`prey_mask` are currently **per-letter** bits. 68 letters > 64-bit budget → S6 switches the scheme to **predicate bits**: each bit = a structural predicate, not a letter. S6 defines the *scheme + the full vocabulary* (enumerated from the roster's Z/A prey clauses); S1 populates the vis predicate, S3 populates the threshold predicates. The vocabulary (verbatim from the roster, this is a read not a decision):
@@ -54,9 +54,9 @@ A strain's `feature_mask` = OR of every predicate bit it satisfies (computed at 
 ## 4. Data flow
 ```
 mint(seq) ─► phenotype():
-   gran/motif_blocks(seq) ──► spectrum pre-filter (gran-matched) ──► Phenotype.spectrum
-                          └─► n_locked_F/P/Z (blocks in locked positions)
+   gran/motif_blocks(seq) ──► spectrum pre-filter (gran + equal-len) ──► Phenotype.spectrum
                           └─► feature_mask = OR(predicate bits seq satisfies)   [S6 family/motif/ℓ≥3 bits; S1/S3 fill rest]
+n_locked_F/P/Z: computed on demand from motif_blocks over locked positions (not stored)
 mutate: _mutation_outcomes ─► slot in motif block? overwrite whole block (equal-len) : overwrite single
 ```
 

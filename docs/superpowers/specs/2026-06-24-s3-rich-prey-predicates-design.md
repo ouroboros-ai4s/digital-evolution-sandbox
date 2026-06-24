@@ -19,16 +19,16 @@ Plus the motif clauses S6 already encoded as bits but S3 verifies population: `{
 - The thresholds (f≥0.5, p_add≥0.05, z≤0.45, |prey|≥2, vis≤0.20) are **prey-selection predicates the predator declares** — "what do I hunt", structural. They are NOT "who is strong" — a predator hunting high-f prey doesn't make high-f prey weaker by fiat; it creates a frequency-dependent pressure that the dynamics resolve. The threshold values are verbatim from the roster, not chosen here.
 - A strain's `feature_mask` is a pure function of its own phenotype (its f, p_add, z, prey-count, vis are all already computed). No world-state.
 - Antagonism kernel **unchanged**: still `(prey_mask[i] & feature_mask[j]) != 0`. S3 only sets more bits.
-- Default: no v1 predator uses these clauses → byte-identical. All threshold-hunters dormant until minted.
+- Default: default-BB0 predators (BroadSweep) use **family-based** prey={F,Z}, NOT a threshold clause — threshold clauses attach only to primitives absent from default BB0, so feature bits get set but no default predator matches them → no kill change. Per the re-baseline policy (S2, user 2026-06-24), regression fixtures are re-recorded after the registry grows; the byte-identity lock then guards non-registry code, not 6-letter values. All threshold-hunters dormant until minted.
 
 ## 3. Architecture
 All work is in **`phenotype()`** (set `feature_mask` bits on the prey side) and the **prey-clause→`prey_mask`** mapping (predator side). No kernel change.
 
 ### 3.1 feature_mask population (prey side)
-In `phenotype()`, after computing f/p_x/z_raw/prey/vis, set the strain's threshold feature bits:
+In `phenotype()`, after computing f/p_x/z_raw/prey/vis, set the strain's threshold feature bits. **S6 reserved all four threshold bit slots in its predicate vocabulary; S3 only assigns meaning + populates them — it does not extend S6's scheme.**
 - `FEAT_F_HI` if the strain has an F letter with `f_s ≥ 0.5` (per-letter, from `_F` table — note: the strain's *stacked* f vs a *letter's* f. Roster says `fam(s)=F ∧ f_s≥0.5` where s is a **primitive**, so the bit reflects "carries an F primitive with f≥0.5", per-letter, not stacked). 
 - `FEAT_P_HI` if it carries a P letter with `p_add ≥ 0.05`.
-- `FEAT_Z_GENERALIST` if it carries a Z letter with `z_s ≤ 0.45 ∧ |prey_s| ≥ 2` (BroadSweep z=0.40 prey={F,Z} qualifies — Mirror Fang's intended target).
+- `FEAT_Z_GENERALIST` if it carries a Z letter with `z_s ≤ 0.45 ∧ |prey_s| ≥ 2` (BroadSweep z=0.40 prey={F,Z} qualifies; A-pool Sweep Surge z=0.45 prey={F,P} also qualifies at the z=0.45 boundary — Mirror Fang's intended targets).
 - `FEAT_N_LOWVIS` if it carries an N letter with `vis_s ≤ 0.20` (value source = S1's vis; S6 reserved the bit).
 - motif bits (`FEAT_MOTIF_F/P/Z/N`, `FEAT_L3MOTIF_F/P/Z`) — S6 already sets these from `motif_blocks` + family; S3 confirms ℓ≥3 uses the block span length.
 
@@ -46,13 +46,13 @@ phase1_antagonism: (prey_mask[i] & feature_mask[j]) != 0   [UNCHANGED]
 ```
 
 ## 5. Error handling
-- Total predicate-bit count must fit int64 (S6 asserts; S3 adds ~5 bits → still ≤ ~15). Re-assert.
+- Total predicate-bit count must fit int64 (S6 asserts the full vocabulary ≤ ~15 bits, including the 4 threshold bits S3 populates). S3 adds no new bits — it populates S6-reserved slots — so the assert is S6's; S3 need not re-assert.
 - `|prey_s|` (prey-clause cardinality of a Z letter) — derivable from the registry `_Z` prey-family tuple length; compute at module load per Z letter, no runtime cost.
 - A strain carrying multiple qualifying letters: bits are OR'd (carries ≥1 → bit set). Correct.
 
 ## 6. Testing
-- Regression: 285+146 green (no v1 predator uses threshold clauses; feature bits added but unmatched → no kill change).
-- New: a strain with F4Nr4 (f=0.50) sets FEAT_F_HI (0.50≥0.5 boundary — test the ≥); F4Nr1 (f=0.30) does not; P_hotspot (p_add=0.05) sets FEAT_P_HI (boundary); BroadSweep sets FEAT_Z_GENERALIST (z=0.40≤0.45, |prey|=2≥2); a low-vis N strain sets FEAT_N_LOWVIS; Crest Bite's prey_mask matches FEAT_F_HI strains only; Mirror Fang matches generalist-Z only. Antagonism known-answer unchanged for family-only predators.
+- Regression: default-BB0 predator BroadSweep uses family prey, not threshold clauses; feature bits added but unmatched by any default predator → no kill change. Numeric fixtures re-recorded after registry growth (S2 re-baseline policy).
+- New: a strain with F4Nr4 (f=0.50) sets FEAT_F_HI (0.50≥0.5 boundary — test the ≥); F4Nr1 (f=0.30) does not; P_hotspot (p_add=0.05) sets FEAT_P_HI (boundary); BroadSweep sets FEAT_Z_GENERALIST (z=0.40≤0.45, |prey|=2≥2); Sweep Surge sets it too (z=0.45 boundary, |prey|=2); Attrition Bite (z=0.55>0.45) does NOT set it; N0 (vis=0.20) sets FEAT_N_LOWVIS (inclusive ≤ boundary), N1 (vis=0.40) does not; Crest Bite's prey_mask matches FEAT_F_HI strains only; Mirror Fang matches generalist-Z only. Antagonism known-answer unchanged for family-only predators.
 - relabel-invariance: the thresholds read the strain's *own structural* f/p_add/z (which come from the registry tables, not per-species) — shuffling the table reassigns which letters qualify, but a fixed strain's bits follow its letters' registry values deterministically. Test: fix the registry, the bit assignment is a pure function of the sequence.
 
 ## 7. Out of scope

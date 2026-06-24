@@ -33,7 +33,7 @@ Move from `webapp/server.py` into a new engine-layer module **`src/des/run.py`**
 - `_DEFAULTS` (grid/K/fill/T/seed/z_max)
 - `layout_from_slots(slots) -> tuple[str,…]`
 - `build_engine_from_config(cfg, device) -> (Engine, resolved)`
-- `pick_device(force_cpu=False) -> torch.device` (the one true byte-identical dup; folds `server.py:_device` and `run_batch.py`'s inline device line)
+- `pick_device(device=None, force_cpu=False) -> torch.device` — **behavior-preserving fold** (not byte-identical, since `server.py:_device(device)` takes an explicit device arg) of `server.py:_device` and `run_batch.py`'s inline device line. The server passes its launch device arg straight through (`device=...`), preserving today's `cuda:N` selection; `force_cpu=True` forces CPU; `device=None` auto-selects cuda-if-available.
 
 `webapp/server.py` then **imports** these instead of defining them. Behavior byte-identical → the 146 web tests are the regression lock. `webapp/server.py` keeps its own async WS loop (irreducibly different: `await ws.send_json` + `if ws.closed: break` — confirmed by ponytail audit; a shared loop would async-infect the sync batch path for zero gain).
 
@@ -51,6 +51,7 @@ PYTHONPATH=src python scripts/run_match.py --config match.json [--cpu] [--out da
    "grid": 128, "K": 64, "fill": 20, "T": 450, "seed": 0}
   ```
   (Exactly 4 players; slot keys are mutable-slot indices as strings; values from `PALETTE`. Same validation as web: each layout → `layout_from_slots` → `validate_bb0_layout`; a bad config exits non-zero with the ValueError message, mirroring the web `{"event":"error"}` path.)
+- **Key allow-list guard (the CLI's own — red-line #2):** `run_match.py` first validates top-level keys against the allow-list `{players, grid, K, fill, T, seed}` and exits 1 on any other key — explicitly rejecting outcome constants `z_max / mu / delta / p_max / alpha / kappa / beta`. This matters because `build_engine_from_config` overlays *any* `_DEFAULTS` key found in `cfg` (`server.py:61-62`), and `_DEFAULTS` contains `z_max`; without this guard a `match.json` carrying `"z_max": 20` would be silently honored. The web path fixes `z_max` from `_DEFAULTS` and never exposes it; the CLI guard closes the same door for the JSON front end.
 - `pick_device` → `build_engine_from_config` → `Engine.run(T, recorder=rec)` headless → one parquet under `data/runs/`.
 - Prints the match result (§3.3) to stdout as JSON so an orchestrating AI can parse it.
 
@@ -58,7 +59,7 @@ One JSON schema, two front doors: WS for humans, JSON+CLI for AI. web↔CLI conf
 
 ### 3.3 Match result (pure aggregation, reuses readouts)
 
-After the run, call `compute_readouts` on the final tick's non-empty records (same inputs the recorder already materializes). Emit:
+After the run, call `compute_readouts` on the final tick's **in-memory** records — the recorder's last materialized batch / final world snapshot, NOT a parquet read-back. The parquet footer is only written on `close()` (CLAUDE.md footer-timing lesson), so a read-back mid-finalize would fail. Emit:
 
 ```json
 {"path": "data/runs/…parquet", "ticks": 450,
@@ -66,7 +67,7 @@ After the run, call `compute_readouts` on the final tick's non-empty records (sa
            "n2": …, "d_max": …, "faction_share": {"0": …, "1": …, "2": …, "3": …}}}
 ```
 
-`faction_share` is the per-faction outcome signal the AI player reads to judge win/loss. No "winner" field — the sandbox stays goal-free. `final.per_faction[f]` = `compute_readouts` called on faction `f`'s subset of the same final-tick records (one group-by, no new definition) → gives the AI finer per-faction signal (each faction's own total/occupied/distinct). Reuses the single readouts definition; adds no new metric.
+`faction_share` is the per-faction outcome signal the AI player reads to judge win/loss. No "winner" field — the sandbox stays goal-free. Reuses the single readouts definition; adds no new metric.
 
 ### 3.4 `scripts/run_batch.py` stays as-is
 

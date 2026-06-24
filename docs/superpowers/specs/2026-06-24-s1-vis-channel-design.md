@@ -18,26 +18,27 @@ Current code has no vis field and N0's only role is inert filler.
 ## 3. Architecture
 ### 3.1 vis registry + phenotype aggregate
 - `VIS = {letter: float}` in `registry.py` (8 N values above; non-N letters vis=0, unused).
-- `phenotype()` computes the strain's **vis profile aggregate** the hunters need: `vis_sum = Σ_{i: fam=N} vis_i` and `n_count = #{i: fam=N}` (so a hunter can form `(1/L)Σ vis` and `(1/L)Σ(1−vis) = (n_count − vis_sum)/L` over the prey's N positions; L = sequence length, already known). Store `vis_sum` (float) + `n_count` (int) as Phenotype fields → two new phe-arrays bulk-uploaded.
+- `phenotype()` computes the strain's **vis profile aggregate** the hunters need: `vis_sum = Σ_{i: fam=N} vis_i` and `n_count = #{i: fam=N}` (so a hunter can form `(1/L)Σ vis` and `(1/L)Σ(1−vis) = (n_count − vis_sum)/L` over the prey's N positions; L = the already-known sequence length, v1 fixed-16 / `len(seq)`). Store `vis_sum` (float) + `n_count` (int) as Phenotype fields → two new phe-arrays bulk-uploaded.
 
 ### 3.2 vis-weighted hit in antagonism kernel
 Currently every valid (attacker i, prey j) pairing kills `round(count[i]·z_eff)`. For a vis-weighted hunter, scale that by `p_hit` computed from prey j's vis profile:
-- Add a per-attacker **vis-mode** flag (2 bits in the existing scheme, or a small int array): `0` = none (all current primitives), `1` = vis-weighted (Scatter Nip), `2` = inverse-vis-weighted (Ghost Spike).
-- In `phase1_antagonism`, after `raw_kill`, compute `p_hit_j` from prey j: mode 1 → `vis_sum_j / L_j`; mode 2 → `(n_count_j − vis_sum_j) / L_j`; mode 0 → `1.0`. Multiply `raw_kill *= p_hit` for attacker rows in vis-mode. Everything downstream (proportional cap, self-loss) unchanged.
-- `L_j` (prey sequence length) — add as a phe-array (`seq_len`), or reuse a constant 16 in v1 (all strains length-16 within the default; motif/variable-length is dormant). **Lazy default: phe-array `seq_len` (correct under future variable length), not the constant** — one int array, future-proof, no magic 16.
+- Add a per-attacker **vis-mode** flag as a small int array (an attacker-side behavior flag, distinct from and not part of S6's predicate-bit encoding scheme): `0` = none (all current primitives), `1` = vis-weighted (Scatter Nip), `2` = inverse-vis-weighted (Ghost Spike).
+- In `phase1_antagonism`, after `raw_kill`, scale ONLY vis-mode attacker rows by `p_hit_j` computed from prey j: mode 1 → `vis_sum_j / L`; mode 2 → `(n_count_j − vis_sum_j) / L`. Mode-0 rows are left untouched — they SKIP the `p_hit` multiply entirely (no global `×1.0` on the rounded-int kill), so the default kernel path is bit-identical. Everything downstream (proportional cap, self-loss) unchanged.
+- `L` (prey sequence length) = the already-known v1 fixed-16 / `len(seq)`. No new array; a per-strain length array belongs to the future variable-length spec, not here.
 
 ### 3.3 vis≤0.20 predicate bit (handoff to S3)
 S6 reserved the `fam=N ∧ vis≤0.20` predicate bit for Void Bite (A pool). S1 fills its **value source**: `phenotype()` sets that feature bit if the strain has any N position with vis≤0.20. (Void Bite itself is an A primitive minted in S8; S1 just makes the bit computable now.)
+- **Default N0:** N0's roster vis=0.20 meets the inclusive `≤0.20` (the `≤` matches roster Void Bite's `vis_s≤0.20`, not `<`), so this bit is SET for the default-BB0 N0 strain. Harmless: no default primitive consumes it (Void Bite is dormant until S8).
 
 ## 4. Data flow
 ```
-mint(seq) ─► phenotype(): vis_sum=Σ_{N}vis, n_count=#N, seq_len=L; set vis≤0.20 feature bit
+mint(seq) ─► phenotype(): vis_sum=Σ_{N}vis, n_count=#N; set vis≤0.20 feature bit
 phase1_antagonism: raw_kill ─► ×p_hit(prey vis profile, attacker vis-mode) ─► cap ─► losses
 ```
 
 ## 5. Error handling
 - vis outside [0,1] in the registry: assert at module load.
-- Empty N profile (n_count=0): `p_hit` denominator is L>0; `vis_sum=0` → mode-1 p_hit=0 (no N to hit, no kill), mode-2 p_hit=0 too (n_count=0). Correct (a hunter of N finds nothing). Guard the `n_count − vis_sum` from negative via the same alive masking.
+- Empty N profile (n_count=0): `p_hit` denominator is L>0; `vis_sum=0` → mode-1 p_hit=0 (no N to hit, no kill), mode-2 p_hit=0 too (n_count=0). Correct (a hunter of N finds nothing). `(n_count − vis_sum)` is mathematically ≥0 (every N vis ≤ 1.0, max N6=1.00), so no guard is needed; if float epsilon is a concern, clamp with a plain `max(0.0, ·)` — not alive-masking.
 
 ## 6. Testing
 - Regression: 285+146 green (only N0 gains its roster vis=0.20; no behavior change since no default hunter is vis-weighted).

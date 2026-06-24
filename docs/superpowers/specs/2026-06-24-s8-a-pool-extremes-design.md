@@ -14,10 +14,14 @@ The A pool is the **collection point**: it adds no new mechanism, only new regis
 ## 2. The de-gate (user decision, 2026-06-24)
 A primitives are **de-gated**: reachable purely by the global affinity spectrum, exactly like any other primitive. The `n_locked(chan)≥θ` overwrite gate is **retired**.
 - **A primitives are family F/P/Z at extreme values, NOT a 5th rank-4 family.** design.md line 339 abolished the rank-4 family in the 2026-06-20 descaffold: "字母族 S 族(rank4)… **作废** → 族降 4 档 `N<F<P<Z`". So Apex Bloom is family F, Apex Fang is family Z, Hotspot Amp is family P. "A 池 / rank 4" is an **organizational tier**, not a mutation-family. `FAMILY_RANK` stays {N,F,P,Z}; there is no rank-4 letter.
-- **Reachability**: an extreme-F variant is reached from other F primitives **within family F at aff=0.70** (common), gran-matched — the normal spectrum, no special path. This is *more* reachable than the retired-gate framing assumed; A variants are ordinary same-family spectrum targets that happen to sit at extreme parameter values.
+- **Reachability**: an extreme-F variant is reached from other F primitives **within family F at aff=0.70** (common), gran-matched — the normal spectrum, no special path. (Layering: 0.70/0.25/0.05 are the `affinity()` weights — same-family / adjacent |Δrank|=1 / cross |Δrank|≥2, `FAMILY_RANK` {N:0,F:1,P:2,Z:3} per S2; `_spectrum_for` normalizes them over the alphabet into the actual draw probabilities.) This is *more* reachable than the retired-gate framing assumed; A variants are ordinary same-family spectrum targets that happen to sit at extreme parameter values.
 - Rationale for de-gating (holds, rationale corrected): the gate was an *extra* restriction layered on top of the spectrum, and it had to read backbone composition (`n_locked`) to decide reachability — a smuggled-bias surface. Removing it = A obeys the single global affinity rule, **fewer bias surfaces**.
 - Cost (accepted): the "建难" property (A only emerges in specialized species) is gone; A is reachable as a normal same-family spectrum target.
-- Roster cleanup (part of S8): the 24 `覆写: {株:n_locked≥θ}` lines + OPEN-1/θ section become **dead** — S8 rewrites them to "A reachable via affinity spectrum within its F/P/Z family (same rule as every primitive), no extra gate" and marks the θ section retired. **`n_locked` itself**: S6 computes it; with the gate retired it has no consumer → S8 marks it advisory/unused (kept as a structural readout, not wired into mutation). 
+- Roster cleanup (part of S8): the 24 `覆写: {株:n_locked≥θ}` lines + OPEN-1/θ section become **dead**. S8 rewrites each `覆写:` line verbatim to:
+  > `覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).`
+  and marks the OPEN-1/θ section:
+  > `RETIRED (2026-06-24) — the n_locked≥θ overwrite gate is removed; A obeys the single global affinity rule. n_locked kept as an advisory structural readout, not wired into mutation.`
+  **`n_locked` itself**: S6 computes it on demand; with the gate retired it has no consumer → advisory/unused (a structural readout, not wired into mutation).
 
 ## 3. Red lines
 - De-gating removes a gate; it adds no "who is strong". All A strengths flow through `_F/_Z/_P` (extreme values, but global tables). The extreme ranges are roster-declared (f≤0.85 / z≤1.5 with narrow prey holding the z↔list anti-correlation / p_add≤0.34, rate cap 0.35).
@@ -29,6 +33,15 @@ S8 is mostly **registry data entry** + the de-gate edit. No new mechanism code.
 - Add 24 A rows to `_F/_Z/_P` + `ALPHABET` (each tagged its true family F/P/Z, NOT rank-4) + `GRAN`/`MOTIF_LEN` (S6) + `SPECTRUM_SHAPE` (S2, for the P variants) + window params (S5, F_NOVA) + `rand_dir`/hash dirs (S4) + `slots_per_event` (S7, P_cascade) + `PREY_CLAUSE` (S3, the Z/motif/vis predators) + vis (n/a for A — A produces only f/p/z).
 - **affinity is untouched**: A primitives are family F/P/Z, so they slot into the existing families and are reached within-family at aff=0.70 (extreme F from normal F, etc.). `FAMILY_RANK` stays {N,F,P,Z}; no rank-4 letter, no affinity change.
 - The de-gate edit is mostly a **no-op in code**: the current `_mutation_outcomes` has no n_locked gate (the gate only ever existed on paper). De-gating = a **roster doc cleanup** (§2) + confirming no gate logic is added by S6/S8.
+
+### 4.1 Multi-P spectrum blend (user ruling 2026-06-24 — S8 owns it)
+The one real mechanism change S8 makes. v1 picks a single `dominant_p` (highest p_add, ties by first occurrence) as the spectrum source (`registry.py:101-105`); design.md L223 specifies **blending** the stacked-P spectra weighted by p_add:
+
+```
+spectrum(t) = Σ_i p_add_i · q_i(t)  /  Σ_i p_add_i      # over the strain's P letters i
+```
+
+This replaces the `dominant_p` selection in `phenotype()`. It lands in S8 because S8's A-pool rows are exactly the multi-slot P variants that exercise it: **P_cascade** (2 slots/event, S7), **P_frozen**/**P_stutter** (aff⁴ sharpening). Dormant in the default game: one P letter → `Σ` has a single term → blend == dominant_p == that letter's spectrum, byte-identical to v1's single-letter path. Each `q_i` is the already-shaped, gran-filtered, normalized spectrum from S2's `_spectrum_for`; the blend is a p_add-weighted average over the (already cached) per-letter spectra, then re-normalized.
 
 ## 5. Data flow
 A primitives flow through the exact same mint→phenotype→kernel paths S1–S7 built; S8 only populates their registry rows. No new data path.

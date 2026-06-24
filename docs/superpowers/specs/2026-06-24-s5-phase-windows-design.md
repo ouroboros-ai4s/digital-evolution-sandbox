@@ -5,9 +5,9 @@
 
 ## 1. Why
 Three roster primitives modulate f by a **time window** relative to birth, creating burst/rest rhythm (博弈节奏):
-- **FBURST** (`primitive-roster.md` line 80): `(T−birth) mod 12 < 2 ⇒ f=0.55, else f=0.05`; dirs=4-nbr, p_leave=0.20, T=2.
-- **F_NOVA** (A pool, line 214): `(T−birth) mod 20 < 1 ⇒ f=0.85, else 0.05`; dirs=4-nbr, p_leave=0.50, T=2.
-- **P_burst_lite** (line 119): period-gated pulse — but its *f* isn't windowed (it's a P primitive, no f); its "相位窗突变爆发" = the existing period clock. **No new mechanism for P_burst_lite** — it's plain `aff` spectrum + slow T, fully handled by S2. Listed here only to disclaim it.
+- **FBURST** (`primitive-roster.md` lines 81–82): `(T−birth) mod 12 < 2 ⇒ f=0.55, else f=0.05`; dirs=4-nbr, p_leave=0.20, T=2.
+- **F_NOVA** (A pool, lines 215–216): `(T−birth) mod 20 < 1 ⇒ f=0.85, else 0.05`; dirs=4-nbr, p_leave=0.50, T=2.
+- **P_burst_lite** (line 120): period-gated pulse — but its *f* isn't windowed (it's a P primitive, no f); its "相位窗突变爆发" = the existing period clock. **No new mechanism for P_burst_lite** — it's plain `aff` spectrum + slow T, fully handled by S2. Listed here only to disclaim it.
 
 So S5 is really FBURST + F_NOVA: f that depends on `(T − birth_tick) mod W < k`.
 
@@ -25,7 +25,7 @@ The phase window is the *same shape* as `fires_this_tick`. Phenotype stores 4 wi
   on = ((T - birth_tick) % burst_w) < burst_k          # [H,W,K], same form as fires_this_tick
   f  = torch.where(on, f_hi, f_lo)
   ```
-  Everything downstream (binom offspring, mutation split, roll) unchanged. The old `f` array becomes redundant (= `f_hi`); keep or drop.
+  Everything downstream (binom offspring, mutation split, roll) unchanged. The old `f` array has consumers beyond this kernel (`phenotype_cache.py`, `kernels/reproduction.py`), so **keep `f` as an alias of `f_hi`** rather than dropping it — the static-default identity `f == f_hi` keeps every existing reader byte-identical.
 
 No per-tick cache invalidation, no per-individual phenotype — the cache stores params, the kernel applies the clock.
 
@@ -36,8 +36,8 @@ phase2_reproduce: on = (T-birth)%burst_w < burst_k ; f = where(on, f_hi, f_lo) �
 ```
 
 ## 5. Error handling
-- burst_w=0 would divide-by-zero in `%`; the static default is 1 and the `clamp(min=1)` already guarding `fires_this_tick`'s period applies identically. Reuse it.
-- Multi-F strain with mixed windowed + static F letters: f stacks via `1−Π(1−f_i)` as today, but each f_i is now its own windowed value. Compute each letter's live f (windowed), then stack. **This is the one subtlety**: the stack must happen on *post-window* f, per letter — so the window resolution moves into the per-letter accumulation in `phenotype()`'s consumer, or the kernel stacks per-letter. Lazy correct: since phenotype already collapses multi-F into one stacked `f`, S5 must instead store per-contributing-letter window params OR (simpler) resolve at the dominant-F level like dominant_p. **Default: a strain's f-window = the single windowed F letter if exactly one is present; if a windowed F coexists with other F letters, document that v1 uses the windowed letter's params on the stacked f (approximation, flagged), full per-letter windowed stacking deferred.** Motif/multi-F is dormant in default BB0, so this approximation never fires in the symmetric game.
+- burst_w=0 would divide-by-zero in `%`; `burst_w` is a NEW array, so the existing `clamp(min=1)` that guards `fires_this_tick`'s `period` does NOT cover it automatically — apply the same `clamp(min=1)` explicitly to `burst_w`. The static default is already 1.
+- Multi-F strain with mixed windowed + static F letters: f stacks via `1−Π(1−f_i)` as today, but each f_i is now its own windowed value. Compute each letter's live f (windowed), then stack. **This is the one subtlety**: the stack must happen on *post-window* f, per letter — so the window resolution moves into the per-letter accumulation in `phenotype()`'s consumer, or the kernel stacks per-letter. Lazy correct: since phenotype already collapses multi-F into one stacked `f`, S5 resolves at the **dominant-F** level (mirroring the existing `dominant_p` analogue): pick the windowed params of the dominant F letter (highest f, ties by first occurrence). **Default: with exactly one windowed F letter present, that letter's params apply; when two or more windowed F letters coexist, the dominant-F letter's window params apply to the stacked f (approximation, flagged); full per-letter windowed stacking deferred.** Motif/multi-F is dormant in default BB0, so this never fires in the symmetric game.
 
 ## 6. Testing
 - Regression: 285+146 green (static defaults f_hi=f_lo=f, w=k=1 → identical f every tick).
