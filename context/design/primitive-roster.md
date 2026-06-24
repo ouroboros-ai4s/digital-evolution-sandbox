@@ -56,9 +56,10 @@
 吐 f(繁衍比例) / dirs(波及格) / p_leave(迁出率) + T(周期)。后代=Binom(count,f) 散到 dirs;迁出=Binom(count,p_leave) 消失。堆叠 $f=1-\prod(1-f_i)$。
 > from(前驱谱):获得繁衍功能 = 从 N_res 或同族邻档单步可达(Δrank≤1)。residue 档前驱 = $\{N_{res}\}\cup\{\text{同 gran 的 F-residue 邻档}\}$;motif/相位档(FBURST)前驱含 motif N。**禁从 rank≥3(Z)直接变出 F**(Δrank≥2 跳须经 P_zscan_invert 等中转,见 A 池)。
 
-- **F4Nr1**: 最弱档脉冲,4 邻随机 1 格,BB0 可选起点。
-  - $f=0.30,\; \text{dirs}=\{(-1,0)\}\,(\text{1 rand of 4-nbr}),\; p_{\text{leave}}=0.05,\; T=4$
+- **F4Nr1**: 最弱档脉冲,4 邻中 seq-hash 锁定 1 个固定方向(单向渗透),BB0 可选起点。
+  - $f=0.30,\; \text{dirs}=\{d_{\text{hash}}\}\,(\text{1 of 4-nbr, by seq-hash}),\; p_{\text{leave}}=0.05,\; T=4$
   - from: $N_{res}\cup\{\text{F4Nr3}\}$ — N 漂出最弱繁衍 / 强档退一阶(降档易)
+  - > 方向消歧(2026-06-24):mint 时按序列 hash 锁定 1 个 4-邻方向(整条血统固定,非逐 tick 随机)。依据:design.md L276「4N随机1」+ L291「方向由序列hash定、出生锁死、非argmin私货」+ 描述「单向渗透」(逐tick变向则非单向)+ 本名册拷贝 Ember Drip/F_TRICKLE 已用 $d_{\text{hash}}$。原 $\{(-1,0)\}$ 系引擎 v1 写死占位,已废。区别于 FDRIFT(逐 tick 随机,标 /tick)。
 - **F4Nr4**: 标准强档,四方向全 4 格全向扩张,BB0 locked@pos1。
   - $f=0.50,\; \text{dirs}=\{(-1,0),(1,0),(0,-1),(0,1)\},\; p_{\text{leave}}=0.15,\; T=5$
   - from: $\{\text{F4Nr3},\text{FCLUMP}\}$ — 由邻近繁衍档升/侧变
