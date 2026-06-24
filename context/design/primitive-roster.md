@@ -271,3 +271,9 @@
 - **N/F/P/Z 池** 仍保留各自 `from:` 行(中性互漂 / 功能获得方向),为后续设计的参考线,非红线判据。
 
 **废弃**(均非用户设计的概念,2026-06-24 删):逐条点名前驱当红线、「三结构律(粒度/阶梯/非对称)」、「破易建难非对称律」、对称性。粒度配对(residue↔residue / motif↔motif)是突变核机制本身,不需另立为律。
+
+### motif 粒度突变规则 (2026-06-24 裁定:motif↔motif **等长**,零机制改动)
+
+突变核只**覆写、不增删位** → motif 基元突变**保长度**:占 $N$ 位的 motif 只能突变成另一个占 $N$ 位的 motif,**不能**变成 $M\neq N$ 位的 motif(株总位数在血统内不被突变改变)。依据:design.md `P_loopswap_lite` =「短段(m=2-3)换**同长**motif」(line 322)、PHASE2 落地覆写(line 200)+ 本名册 P 池「挑插槽抽字母覆写」(P 池表头)、突变只在插槽换零件(design line 255);株序列长度**在一条血统内定死,变长只发生在不同 backbone 之间**(design line 97 骨架长度可变 + 插槽预算守恒,采集侧用变长记录)。变长解须引入插入/删除位 = 改突变核 + 破 BB0 定长 + 破插槽预算守恒(大改),故按「最少机制改动」否决;等长解 = 现有覆写核**零改动**。**无私货**:规则对所有 motif 一视同仁,segment 宽度由位点/backbone 定死、信息只来自序列与明文规则。
+
+**ℓ≥3 长 motif 专才(Lineage Reaper / Coil Cinch / Idiotype Lance / Predator Lock)怎么进种群:** 由**携带 ≥3 位 motif 槽的 backbone 起始注入**(不同 backbone 长度/布局不同,design line 97),血统内 motif↔motif 突变只在该位点**等长**的 motif 之间探索内容、不加长。`from:` 行的「→长 motif(**同 gran 邻档**)」= 注册表里**同粒度(motif→motif)的谱可达邻档**(如 Ambush Coil 与 Lineage Reaper 都是 F-motif 专才、设计 clade 图上相邻一阶),**不是「突变把短 motif 加长一位」** —— `from:` 是参考线非红线(见本节首条),勿据此读成变长。BB0 默认对照局可变插槽皆单残基位、motif 基元(F4Nr4/BroadSweep)均 locked → 突变无 ≥3 位 motif 位点可作用,**长 motif 专才在默认局不涌现**,留未来异 backbone 角色系统(HARD-GATE),与 A 池 θ-惰性同理。
