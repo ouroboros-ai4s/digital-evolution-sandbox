@@ -59,3 +59,67 @@ def test_two_separated_motif_blocks_of_same_letter_stay_separated(monkeypatch):
     assert len(m2_blocks) == 2
     assert (0, 2, "M2") in m2_blocks
     assert (3, 5, "M2") in m2_blocks
+
+
+def test_spectrum_residue_path_byte_identical_to_legacy():
+    """Default v1 alphabet is all-residue: the spectrum for every letter must
+    survive the gran-match filter exactly as before (regression lock)."""
+    from des.registry import _spectrum_for, ALPHABET
+    # Reproduce the legacy formula directly to compare.
+    from des.registry import affinity, ALPHABET as A
+    def legacy(letter):
+        src_fam = A[letter]
+        weights = {t: affinity(src_fam, A[t]) for t in A if t != letter}
+        tot = sum(weights.values())
+        if tot == 0:
+            return ()
+        return tuple((t, w / tot) for t, w in sorted(weights.items()))
+    for letter in ALPHABET:
+        assert _spectrum_for(letter) == legacy(letter), \
+            f"residue spectrum changed for {letter}"
+
+
+def test_spectrum_motif_excludes_cross_gran_targets(monkeypatch):
+    """A motif source letter must not produce residue targets in its spectrum."""
+    monkeypatch.setitem(registry.GRAN, "M2", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2", "F")
+    monkeypatch.setitem(registry.GRAN, "M2b", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2b", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2b", "Z")
+    monkeypatch.setitem(registry.GRAN, "M3", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M3", 3)
+    monkeypatch.setitem(registry.ALPHABET, "M3", "F")
+    spec = registry._spectrum_for("M2")
+    targets = {t for t, _ in spec}
+    # No residue letters in the M2 spectrum.
+    assert "F4Nr1" not in targets and "P_base" not in targets and "N0" not in targets
+    # M3 excluded by equal-length predicate (different MOTIF_LEN).
+    assert "M3" not in targets
+    # M2b survives (same gran, same length, different family).
+    assert "M2b" in targets
+
+
+def test_spectrum_motif_renormalizes_to_unit_sum(monkeypatch):
+    monkeypatch.setitem(registry.GRAN, "M2", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2", "F")
+    monkeypatch.setitem(registry.GRAN, "M2b", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2b", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2b", "Z")
+    monkeypatch.setitem(registry.GRAN, "M2c", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2c", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2c", "P")
+    spec = registry._spectrum_for("M2")
+    total = sum(q for _, q in spec)
+    assert abs(total - 1.0) < 1e-12, f"spectrum did not renormalize: total={total}"
+
+
+def test_spectrum_empty_when_no_compatible_target(monkeypatch):
+    """If the gran-matched + equal-length filter leaves zero candidates,
+    _spectrum_for must return ()."""
+    monkeypatch.setitem(registry.GRAN, "M_lonely", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M_lonely", 7)
+    monkeypatch.setitem(registry.ALPHABET, "M_lonely", "F")
+    spec = registry._spectrum_for("M_lonely")
+    assert spec == ()
