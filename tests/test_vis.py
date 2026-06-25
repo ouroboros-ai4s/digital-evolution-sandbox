@@ -300,8 +300,8 @@ def test_relabel_invariance_vis_path_does_not_read_fzp_magnitude(monkeypatch):
     p_before = phenotype(seq)
 
     # Shuffle _F magnitudes (f, directions, p_leave, period).
-    monkeypatch.setitem(registry._F, "F4Nr1", (0.95, ((1, 0),), 0.99, 99))
-    monkeypatch.setitem(registry._F, "F4Nr4", (0.01, ((-1, 0),), 0.01, 1))
+    monkeypatch.setitem(registry._F, "F4Nr1", (0.95, ((1, 0),), 0.99, 99, 0.95, 1, 1))
+    monkeypatch.setitem(registry._F, "F4Nr4", (0.01, ((-1, 0),), 0.01, 1, 0.01, 1, 1))
     # Shuffle _Z magnitude and period (keep vis_mode=0 — only magnitude changes).
     monkeypatch.setitem(registry._Z, "BroadSweep",
                         (0.99, (("F",), ("Z",)), 99, 0))

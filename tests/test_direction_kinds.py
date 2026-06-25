@@ -50,7 +50,7 @@ def test_phenotype_recognizes_hash_locked_directions_field(monkeypatch):
     monkeypatch.setitem(reg.ALPHABET, "FCLUMP_TEST", "F")
     monkeypatch.setitem(reg.GRAN, "FCLUMP_TEST", "motif")
     monkeypatch.setitem(reg.MOTIF_LEN, "FCLUMP_TEST", 2)
-    monkeypatch.setitem(reg._F, "FCLUMP_TEST", (0.45, "hash:fclump", 0.10, 6))
+    monkeypatch.setitem(reg._F, "FCLUMP_TEST", (0.45, "hash:fclump", 0.10, 6, 0.45, 1, 1))
     seq = ("FCLUMP_TEST", "FCLUMP_TEST") + ("N0",) * 14
     p = reg.phenotype(seq)
     # fclump => 2 dirs (一根轴); 全在 ALL_DIRECTIONS 中
@@ -64,7 +64,7 @@ def test_phenotype_recognizes_rand_dir_directions_field(monkeypatch):
     import des.registry as reg
     monkeypatch.setitem(reg.ALPHABET, "FDRIFT_TEST", "F")
     monkeypatch.setitem(reg.GRAN, "FDRIFT_TEST", "residue")
-    monkeypatch.setitem(reg._F, "FDRIFT_TEST", (0.15, "rand:1of4", 0.30, 2))
+    monkeypatch.setitem(reg._F, "FDRIFT_TEST", (0.15, "rand:1of4", 0.30, 2, 0.15, 1, 1))
     seq = ("FDRIFT_TEST",) + ("N0",) * 15
     p = reg.phenotype(seq)
     assert p.rand_dir is True
@@ -78,7 +78,7 @@ def test_phenotype_recognizes_in_place_directions_field(monkeypatch):
     import des.registry as reg
     monkeypatch.setitem(reg.ALPHABET, "FSTACK_TEST", "F")
     monkeypatch.setitem(reg.GRAN, "FSTACK_TEST", "residue")
-    monkeypatch.setitem(reg._F, "FSTACK_TEST", (0.60, (reg.IN_PLACE_DIR,), 0.00, 3))
+    monkeypatch.setitem(reg._F, "FSTACK_TEST", (0.60, (reg.IN_PLACE_DIR,), 0.00, 3, 0.60, 1, 1))
     seq = ("FSTACK_TEST",) + ("N0",) * 15
     p = reg.phenotype(seq)
     assert p.in_place is True
@@ -94,7 +94,7 @@ def test_phenotype_mixed_hash_and_static_F_letters_or_dir_bits(monkeypatch):
     monkeypatch.setitem(reg.ALPHABET, "FFRONT_TEST", "F")
     monkeypatch.setitem(reg.GRAN, "FFRONT_TEST", "motif")
     monkeypatch.setitem(reg.MOTIF_LEN, "FFRONT_TEST", 2)
-    monkeypatch.setitem(reg._F, "FFRONT_TEST", (0.50, "hash:ffront", 0.25, 4))
+    monkeypatch.setitem(reg._F, "FFRONT_TEST", (0.50, "hash:ffront", 0.25, 4, 0.50, 1, 1))
     seq = ("F4Nr4", "FFRONT_TEST", "FFRONT_TEST") + ("N0",) * 13
     p = reg.phenotype(seq)
     # F4Nr4 全 4 邻 OR-into-dir_bits 后, hash-locked 单方向只会重复一个 bit
@@ -185,13 +185,14 @@ def test_s4_motif_F_letters_have_motif_len_2():
 
 
 def test_s4_new_F_rows_have_exact_values():
-    """每行 (f, directions, p_leave, period) 与 spec §3.4 表 verbatim 一致."""
+    """每行 (f, directions, p_leave, period, f_lo, burst_w, burst_k) 与 spec §3.4 表 verbatim 一致.
+    S5 升为 7-tuple; 既有四字段不变, 新三字段是静态默认 (f_lo=f, burst_w=1, burst_k=1)."""
     from des.registry import _F, IN_PLACE_DIR
-    assert _F["FSTACK"] == (0.60, (IN_PLACE_DIR,), 0.00, 3)
-    assert _F["FCLUMP"] == (0.45, "hash:fclump",   0.10, 6)
-    assert _F["FFRONT"] == (0.50, "hash:ffront",   0.25, 4)
-    assert _F["F4Nr3"]  == (0.40, "hash:f4nr3",    0.12, 5)
-    assert _F["FDRIFT"] == (0.15, "rand:1of4",     0.30, 2)
+    assert _F["FSTACK"] == (0.60, (IN_PLACE_DIR,), 0.00, 3, 0.60, 1, 1)
+    assert _F["FCLUMP"] == (0.45, "hash:fclump",   0.10, 6, 0.45, 1, 1)
+    assert _F["FFRONT"] == (0.50, "hash:ffront",   0.25, 4, 0.50, 1, 1)
+    assert _F["F4Nr3"]  == (0.40, "hash:f4nr3",    0.12, 5, 0.40, 1, 1)
+    assert _F["FDRIFT"] == (0.15, "rand:1of4",     0.30, 2, 0.15, 1, 1)
 
 
 def test_phenotype_fstack_strain_has_in_place_true():
@@ -234,7 +235,7 @@ def test_relabel_invariance_directions_read_only_letter_sequence(monkeypatch):
         ("F4Nr3", "F4Nr4", "P_base", "BroadSweep") + ("N0",) * 12,
     )
     pre = [reg.phenotype(s).dir_bits for s in seqs]
-    monkeypatch.setitem(reg._F, "F4Nr4", (0.01, ((1, 0), (-1, 0), (0, 1), (0, -1)), 0.99, 99))
+    monkeypatch.setitem(reg._F, "F4Nr4", (0.01, ((1, 0), (-1, 0), (0, 1), (0, -1)), 0.99, 99, 0.01, 1, 1))
     monkeypatch.setitem(reg._Z, "BroadSweep", (0.99, ("F", "Z"), 99))
     monkeypatch.setitem(reg._P, "P_base", (0.0, 99))
     monkeypatch.setitem(reg._P, "P_hotspot", (0.0, 99))

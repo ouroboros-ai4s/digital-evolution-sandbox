@@ -176,16 +176,17 @@ def _hash_dirs(seq: tuple[str, ...], kind: str) -> tuple[tuple[int, int], ...]:
 
 
 # per-letter raw outputs (design tables; numbers are formula anchors, not calibrated knobs)
-_F = {    # name -> (f, directions, p_leave, period)
+_F = {    # name -> (f, directions, p_leave, period, f_lo, burst_w, burst_k)
     # S4: F4Nr1 由 v1 占位 ((-1, 0),) 重底定为 hash-locked 1-of-4 (spec §3.3).
-    "F4Nr1": (0.30, "hash:f4nr1", 0.05, 4),
-    "F4Nr4": (0.50, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.15, 5),
-    # S4: 5 new F primitives (spec §3.4 verbatim)
-    "FSTACK":  (0.60, (IN_PLACE_DIR,), 0.00, 3),
-    "FCLUMP":  (0.45, "hash:fclump",   0.10, 6),
-    "FFRONT":  (0.50, "hash:ffront",   0.25, 4),
-    "F4Nr3":   (0.40, "hash:f4nr3",    0.12, 5),
-    "FDRIFT":  (0.15, "rand:1of4",     0.30, 2),
+    # S5: static defaults f_lo=f, burst_w=1, burst_k=1 (no phase window yet).
+    "F4Nr1": (0.30, "hash:f4nr1",                      0.05, 4, 0.30, 1, 1),
+    "F4Nr4": (0.50, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.15, 5, 0.50, 1, 1),
+    # S4: 5 new F primitives (spec §3.4 verbatim); S5 static defaults.
+    "FSTACK":  (0.60, (IN_PLACE_DIR,), 0.00, 3, 0.60, 1, 1),
+    "FCLUMP":  (0.45, "hash:fclump",   0.10, 6, 0.45, 1, 1),
+    "FFRONT":  (0.50, "hash:ffront",   0.25, 4, 0.50, 1, 1),
+    "F4Nr3":   (0.40, "hash:f4nr3",    0.12, 5, 0.40, 1, 1),
+    "FDRIFT":  (0.15, "rand:1of4",     0.30, 2, 0.15, 1, 1),
 }
 _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # prey_clauses: tuple of clause-tuples. Each clause selects ONE predicate
@@ -414,6 +415,12 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     dominant_p: str | None = None
     in_place = False           # S4: FSTACK 标志
     rand_dir = False           # S4: FDRIFT 标志
+    # S5: dominant-F tracking for phase-window resolution
+    dom_f_value: float = -1.0
+    dom_f_lo: float = 0.0
+    dom_burst_w: int = 1
+    dom_burst_k: int = 1
+    f_each: list[tuple[str, float, float]] = []  # (letter, f_val, f_lo_row)
 
     for letter in sequence:
         if letter not in ALPHABET:
@@ -422,9 +429,16 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
             vis_sum += VIS[letter]
             n_count += 1
         if letter in _F:
-            f, dirs_spec, pl, per = _F[letter]
-            f_prod *= (1 - f)
+            f_val, dirs_spec, pl, per, f_lo_row, b_w, b_k = _F[letter]
+            f_prod *= (1 - f_val)
             pl_prod *= (1 - pl)
+            # S5: record for dominant-F tracking
+            f_each.append((letter, f_val, f_lo_row))
+            if f_val > dom_f_value:
+                dom_f_value = f_val
+                dom_f_lo = f_lo_row
+                dom_burst_w = b_w
+                dom_burst_k = b_k
             # S4: dirs_spec 三态. tuple → 字面方向 (旧路径, OR 进 directions/dir_bits);
             # "hash:<kind>" → mint 时调 _hash_dirs(sequence, kind) → 同样 OR 进;
             # "rand:1of4" → 不预写方向, 设 rand_dir=True, kernel 每 tick 现抽.
@@ -482,6 +496,23 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     for d in directions:
         dir_bits |= _DIR_BIT.get(d, 0)
 
+    # S5: stacked f_lo = 1 - (1 - dom_f_lo) * Π(1 - f_i) for all non-dominant F letters.
+    # dominant = highest f_val, first occurrence on tie (max() is stable for first-max).
+    if not f_each:
+        f_lo_stacked = 0.0
+        burst_w_out = 1
+        burst_k_out = 1
+    else:
+        dom_idx = max(range(len(f_each)), key=lambda i: f_each[i][1])
+        non_dom_prod = 1.0
+        for i, (_, f_i, _) in enumerate(f_each):
+            if i == dom_idx:
+                continue
+            non_dom_prod *= (1 - f_i)
+        f_lo_stacked = 1.0 - (1.0 - dom_f_lo) * non_dom_prod
+        burst_w_out = int(dom_burst_w)
+        burst_k_out = int(dom_burst_k)
+
     # S6: predicate-bit masks. Antagonism kernel match expression unchanged.
     feature_mask = feature_mask_of(sequence)
     prey_mask = prey_mask_for_clauses(tuple(prey_clauses))
@@ -494,6 +525,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
         phase_type=phase_type, fold=(),
         vis_sum=vis_sum, n_count=n_count, vis_mode=vis_mode,
         in_place=in_place, rand_dir=rand_dir,
+        f_hi=f, f_lo=f_lo_stacked, burst_w=burst_w_out, burst_k=burst_k_out,
     )
 
 

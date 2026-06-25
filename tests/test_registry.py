@@ -248,3 +248,21 @@ def test_s2_existing_P_rows_unchanged():
     from des.registry import _P
     assert _P["P_base"] == (0.0, 1)
     assert _P["P_hotspot"] == (0.05, 3)
+
+
+def test_existing_F_rows_are_7_tuple_post_s5():
+    from des.registry import _F
+    f4nr1 = _F["F4Nr1"]
+    assert len(f4nr1) == 7
+    assert f4nr1[0] == 0.30
+    assert f4nr1[2] == 0.05
+    assert f4nr1[3] == 4
+    assert f4nr1[4] == 0.30
+    assert f4nr1[5] == 1
+    assert f4nr1[6] == 1
+    f4nr4 = _F["F4Nr4"]
+    assert len(f4nr4) == 7
+    assert f4nr4[0] == 0.50
+    assert f4nr4[4] == 0.50
+    assert f4nr4[5] == 1
+    assert f4nr4[6] == 1
