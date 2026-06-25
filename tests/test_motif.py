@@ -358,3 +358,61 @@ def test_antagonism_match_invariant_under_predicate_rewire():
     assert (p_bs.prey_mask & p_z.feature_mask) != 0
     assert (p_bs.prey_mask & p_p.feature_mask) == 0
     assert (p_bs.prey_mask & p_n.feature_mask) == 0
+
+
+def test_validate_bb0_layout_all_residue_unchanged():
+    """No motif letter present → validate behaves identically to pre-S6."""
+    from des.registry import validate_bb0_layout, BB0_TEMPLATE
+    validate_bb0_layout(BB0_TEMPLATE["layout"])   # must not raise
+
+
+def test_validate_bb0_layout_broken_motif_span_raises(monkeypatch):
+    """A length-3 motif placed at positions 0,1 (only 2 copies) must raise."""
+    monkeypatch.setitem(registry.GRAN, "MF3", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF3", 3)
+    monkeypatch.setitem(registry.ALPHABET, "MF3", "F")
+    # Allow MF3 at the locked positions for this test by patching _LOCKED.
+    monkeypatch.setattr(registry, "_LOCKED", {0: "MF3", 1: "MF3",
+                                              5: "BroadSweep", 7: "P_base"})
+    # Only 2 copies of MF3, but MOTIF_LEN is 3 → broken span.
+    bad = ("MF3", "MF3", "N0", "N0", "N0", "BroadSweep",
+           "N0", "P_base") + ("N0",) * 8
+    with pytest.raises(ValueError, match="motif"):
+        registry.validate_bb0_layout(bad)
+
+
+def test_validate_bb0_layout_motif_correct_span_ok(monkeypatch):
+    monkeypatch.setitem(registry.GRAN, "MF3", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF3", 3)
+    monkeypatch.setitem(registry.ALPHABET, "MF3", "F")
+    monkeypatch.setattr(registry, "_LOCKED", {0: "MF3", 1: "MF3", 2: "MF3",
+                                              5: "BroadSweep", 7: "P_base"})
+    good = ("MF3", "MF3", "MF3", "N0", "N0", "BroadSweep",
+            "N0", "P_base") + ("N0",) * 8
+    registry.validate_bb0_layout(good)   # must not raise
+
+
+def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
+    """Shuffle f/z/p magnitudes across letters; fix structural columns
+    (gran/family/MOTIF_LEN). motif_blocks / n_locked / feature_mask must
+    be byte-identical because they read structure, not magnitude.
+
+    This is the §6 relabel-invariance audit translated into a single test."""
+    from des.registry import motif_blocks, n_locked, feature_mask_of, BB0_TEMPLATE
+    layout = BB0_TEMPLATE["layout"]
+    pre_blocks = motif_blocks(layout)
+    pre_n = (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z"))
+    pre_mask = feature_mask_of(layout)
+    # mutate _F / _Z / _P magnitudes (NOT gran / NOT family / NOT MOTIF_LEN)
+    monkeypatch.setitem(registry._F, "F4Nr1",
+                        (0.95, ((1, 0),), 0.99, 99))                # change f, p_leave, period
+    monkeypatch.setitem(registry._F, "F4Nr4",
+                        (0.01, ((-1, 0),), 0.01, 1))
+    monkeypatch.setitem(registry._Z, "BroadSweep",
+                        (0.99, (("F",), ("Z",)), 99))                # change z, period
+    monkeypatch.setitem(registry._P, "P_hotspot", (0.0, 99))
+    monkeypatch.setitem(registry._P, "P_base", (0.05, 1))
+    # structural readouts MUST be unchanged
+    assert motif_blocks(layout) == pre_blocks
+    assert (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z")) == pre_n
+    assert feature_mask_of(layout) == pre_mask

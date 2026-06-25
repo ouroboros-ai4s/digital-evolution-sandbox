@@ -289,12 +289,34 @@ BB0_TEMPLATE = {
 
 
 def validate_bb0_layout(layout: tuple[str, ...]) -> None:
-    """Enforce the BB0 symmetry invariant (viz spec §5 / red-line 4).
-    locked positions must equal _LOCKED; backbone (non-locked, non-slot)
-    positions must stay "N0"; only _SLOTS positions may vary, and only to a
-    primitive in the 6-letter palette. Raises ValueError on any violation."""
+    """Enforce the BB0 symmetry invariant (viz spec §5 / red-line 4) + S6
+    motif contiguity. locked positions must equal _LOCKED; backbone (non-locked,
+    non-slot) positions must stay "N0"; only _SLOTS positions may vary, and
+    only to a primitive in the current palette. If any motif letter is present,
+    its blocks must be contiguous and exactly MOTIF_LEN positions long.
+    Raises ValueError on any violation."""
     if len(layout) != 16:
         raise ValueError(f"BB0 layout must have 16 positions, got {len(layout)}")
+    # S6: motif contiguity check (no-op for all-residue layouts).
+    has_motif = any(GRAN.get(ltr) == "motif" for ltr in layout)
+    if has_motif:
+        # Walk left-to-right; whenever we see a motif letter, ensure exactly
+        # MOTIF_LEN[letter] consecutive copies starting here, then jump past.
+        i = 0
+        n = len(layout)
+        while i < n:
+            ltr = layout[i]
+            if GRAN.get(ltr) == "motif":
+                need = MOTIF_LEN[ltr]
+                end = i + need
+                if end > n or any(layout[k] != ltr for k in range(i, end)):
+                    raise ValueError(
+                        f"motif {ltr!r} at position {i} requires {need} contiguous "
+                        f"copies; got layout[{i}:{end}] = {layout[i:end]}")
+                i = end
+            else:
+                i += 1
+    # legacy per-position invariant (residues + locked + backbone)
     for i, letter in enumerate(layout):
         if i in _LOCKED:
             if letter != _LOCKED[i]:
