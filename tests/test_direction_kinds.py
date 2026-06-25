@@ -222,3 +222,40 @@ def test_phenotype_f4nr3_strain_has_three_dir_bits():
     from des.registry import phenotype
     p = phenotype(("F4Nr3",) + ("N0",) * 15)
     assert bin(p.dir_bits).count("1") == 3
+
+
+def test_relabel_invariance_directions_read_only_letter_sequence(monkeypatch):
+    """spec §6: shuffling _F/_Z/_P magnitudes must not change dir_bits for any F primitive."""
+    import des.registry as reg
+    seqs = (
+        ("F4Nr1", "F4Nr4", "P_base", "BroadSweep") + ("N0",) * 12,
+        ("FFRONT", "FFRONT") + ("N0",) * 14,
+        ("FCLUMP", "FCLUMP", "F4Nr4", "P_hotspot", "BroadSweep") + ("N0",) * 11,
+        ("F4Nr3", "F4Nr4", "P_base", "BroadSweep") + ("N0",) * 12,
+    )
+    pre = [reg.phenotype(s).dir_bits for s in seqs]
+    monkeypatch.setitem(reg._F, "F4Nr4", (0.01, ((1, 0), (-1, 0), (0, 1), (0, -1)), 0.99, 99))
+    monkeypatch.setitem(reg._Z, "BroadSweep", (0.99, ("F", "Z"), 99))
+    monkeypatch.setitem(reg._P, "P_base", (0.0, 99))
+    monkeypatch.setitem(reg._P, "P_hotspot", (0.0, 99))
+    post = [reg.phenotype(s).dir_bits for s in seqs]
+    assert pre == post, f"directions leaked magnitude reading. pre={pre!r}, post={post!r}"
+
+
+def test_phenotype_arrays_cache_dirty_flag_invalidated_on_new_F_mint():
+    """Minting a new FSTACK strain must invalidate phenotype_arrays cache;
+    new in_place column must show 1 for that strain."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng = Engine(H=8, W=8, K=4, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=2,
+                 layouts=(BB0_TEMPLATE["layout"],) * 4)
+    phe_pre = eng.table.phenotype_arrays(torch.device("cpu"))
+    n_pre = phe_pre["in_place"].shape[0]
+    fstack_layout = ("FSTACK",) + ("N0",) * 15
+    sid = eng.table.get_or_mint(fstack_layout)
+    phe_post = eng.table.phenotype_arrays(torch.device("cpu"))
+    n_post = phe_post["in_place"].shape[0]
+    assert n_post > n_pre, "phenotype_arrays did not rebuild on new mint"
+    assert int(phe_post["in_place"][sid].item()) == 1

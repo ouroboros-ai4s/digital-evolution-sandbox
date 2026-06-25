@@ -204,3 +204,14 @@ def test_p_ep_flatten_uses_full_alphabet_size_in_denominator():
     for t in expected:
         assert abs(actual[t] - expected[t]) < 1e-9, (
             f"P_ep target {t}: expected {expected[t]:.6f}, got {actual[t]:.6f}")
+
+
+def test_p_loopswap_lite_adjacent_can_reach_new_F_letters():
+    """P_loopswap_lite (family_mask='adjacent') should include the 3 new residue F
+    letters (FSTACK/F4Nr3/FDRIFT) and exclude the 2 new motif F letters (FCLUMP/FFRONT)."""
+    from des.registry import _spectrum_for, ALPHABET, GRAN
+    spec = dict(_spectrum_for("P_loopswap_lite"))
+    for letter in ("FSTACK", "F4Nr3", "FDRIFT"):
+        assert letter in spec, f"{letter} (residue F) missing from P_loopswap_lite spectrum"
+    for letter in ("FCLUMP", "FFRONT"):
+        assert letter not in spec, f"{letter} (motif F) leaked into P (residue) spectrum"
