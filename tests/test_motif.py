@@ -62,11 +62,15 @@ def test_two_separated_motif_blocks_of_same_letter_stay_separated(monkeypatch):
 
 
 def test_spectrum_residue_path_byte_identical_to_legacy():
-    """Default v1 alphabet is all-residue: the spectrum for every letter must
-    survive the gran-match filter exactly as before (regression lock)."""
-    from des.registry import _spectrum_for, ALPHABET
-    # Reproduce the legacy formula directly to compare.
+    """Default v1 alphabet is all-residue: for letters whose SPECTRUM_SHAPE is
+    the default (1.0, None, 0.0), the spectrum must be byte-identical to the
+    legacy plain-affinity formula (gran-match + renorm, no shape knobs).
+    S2 letters with non-default shape (power!=1, mask!=None, or mix!=0) are
+    intentional design changes and are excluded from this regression lock."""
+    from des.registry import _spectrum_for, ALPHABET, SPECTRUM_SHAPE
     from des.registry import affinity, ALPHABET as A
+    _DEFAULT_SHAPE = (1.0, None, 0.0)
+
     def legacy(letter):
         src_fam = A[letter]
         weights = {t: affinity(src_fam, A[t]) for t in A if t != letter}
@@ -74,7 +78,10 @@ def test_spectrum_residue_path_byte_identical_to_legacy():
         if tot == 0:
             return ()
         return tuple((t, w / tot) for t, w in sorted(weights.items()))
+
     for letter in ALPHABET:
+        if SPECTRUM_SHAPE.get(letter, _DEFAULT_SHAPE) != _DEFAULT_SHAPE:
+            continue  # shaped P letter: divergence from legacy is by design (S2)
         assert _spectrum_for(letter) == legacy(letter), \
             f"residue spectrum changed for {letter}"
 

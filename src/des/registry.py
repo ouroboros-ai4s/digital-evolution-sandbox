@@ -192,15 +192,21 @@ def affinity(src_family: str, dst_family: str) -> float:
 
 
 def _spectrum_for(letter: str) -> tuple[tuple[str, float], ...]:
-    """Family-distance spectrum filtered by gran-match + equal-length predicate
-    (S6 §3.3). Targets must share gran with `letter`, and motif targets must
-    additionally match MOTIF_LEN. q(target) ∝ affinity(family(letter), family(target));
-    renormalized to Σq=1 across the surviving set. Pure function of the alphabet.
-    Residue source + residue-only alphabet (v1 default) ≡ legacy behavior."""
+    """Family-distance spectrum, gran-matched + equal-length pre-filtered (S6),
+    shape-modulated by SPECTRUM_SHAPE (S2). Pure function of the alphabet.
+
+    Three-knob shape from SPECTRUM_SHAPE.get(letter, (1.0, None, 0.0)):
+      w(t) = aff(fam(letter), fam(t)) ** power
+      w(t) = (1 - mix) * w(t) + mix * 1/(|A| - 1)   # only when mix > 0
+    Renormalized to Σq=1; empty pre-filter → ()."""
     src_fam = ALPHABET[letter]
     src_gran = GRAN[letter]
     src_len = MOTIF_LEN.get(letter)
-    survivors = {}
+    power, mask, mix = SPECTRUM_SHAPE.get(letter, (1.0, None, 0.0))
+    src_rank = FAMILY_RANK[src_fam]
+    A = len(ALPHABET)
+
+    survivors: dict[str, float] = {}
     for t in ALPHABET:
         if t == letter:
             continue
@@ -208,9 +214,21 @@ def _spectrum_for(letter: str) -> tuple[tuple[str, float], ...]:
             continue
         if src_gran == "motif" and MOTIF_LEN[t] != src_len:
             continue
-        survivors[t] = affinity(src_fam, ALPHABET[t])
+        if mask is None:
+            pass
+        elif mask == "adjacent":
+            if abs(FAMILY_RANK[ALPHABET[t]] - src_rank) != 1:
+                continue
+        else:
+            if ALPHABET[t] != mask:
+                continue
+        w = affinity(src_fam, ALPHABET[t]) ** power
+        if mix > 0.0:
+            w = (1.0 - mix) * w + mix * (1.0 / (A - 1))
+        survivors[t] = w
+
     tot = sum(survivors.values())
-    if tot == 0:
+    if tot == 0.0:
         return ()
     return tuple((t, w / tot) for t, w in sorted(survivors.items()))
 
