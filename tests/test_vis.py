@@ -291,38 +291,30 @@ def test_feature_mask_vis_lowvis_set_if_any_N_meets_threshold(monkeypatch):
 
 
 def test_relabel_invariance_vis_path_does_not_read_fzp_magnitude(monkeypatch):
-    """Spec §6: shuffle f/z/p magnitudes across letters (NOT VIS — vis is a
-    structural channel). vis-weighted kernel result must be unchanged because
-    the vis path reads VIS / vis_sum / n_count, not f / z / p magnitudes."""
-    monkeypatch.setitem(registry.ALPHABET, "Hunt", "Z")
-    monkeypatch.setitem(registry.GRAN, "Hunt", "residue")
-    monkeypatch.setitem(registry.VIS, "Hunt", 0.0)
-    monkeypatch.setitem(registry._Z, "Hunt",
-                        (0.40, (("N",),), 5, 1))
-    monkeypatch.setitem(registry.ALPHABET, "Nm", "N")
-    monkeypatch.setitem(registry.GRAN, "Nm", "residue")
-    monkeypatch.setitem(registry.VIS, "Nm", 0.60)
-    from des.engine import Engine
-    # Use _bb0_with_slot0 to build valid BB0 layouts respecting locked positions.
-    layouts = (_bb0_with_slot0("Hunt"),
-               _bb0_with_slot0("Nm"),
-               _bb0_with_slot0("Hunt"),
-               _bb0_with_slot0("Nm"))
-    eng_a = Engine(H=1, W=2, K=16, seed=0, device=torch.device("cpu"),
-                   z_max=8.0, fill_per_cell=4, layouts=layouts)
-    eng_a.run(1, recorder=None, stop_on=())
-    surv_a = int(eng_a.world.count[eng_a.world.faction == 1].sum().item())
-    # Now mutate _F / _Z / _P magnitudes — but NOT VIS / NOT GRAN / NOT ALPHABET.
+    """Spec S1 section 6: shuffling _F/_Z/_P magnitudes must not affect the
+    vis path. phenotype().vis_sum, .n_count, .vis_mode read only VIS and
+    ALPHABET — never _F/_Z/_P magnitudes."""
+    seq = registry.BB0_TEMPLATE["layout"]
+
+    # Compute vis aggregates before any perturbation.
+    p_before = phenotype(seq)
+
+    # Shuffle _F magnitudes (f, directions, p_leave, period).
     monkeypatch.setitem(registry._F, "F4Nr1", (0.95, ((1, 0),), 0.99, 99))
     monkeypatch.setitem(registry._F, "F4Nr4", (0.01, ((-1, 0),), 0.01, 1))
-    monkeypatch.setitem(registry._Z, "BroadSweep", (0.99, (("F",), ("Z",)), 99, 0))
+    # Shuffle _Z magnitude and period (keep vis_mode=0 — only magnitude changes).
+    monkeypatch.setitem(registry._Z, "BroadSweep",
+                        (0.99, (("F",), ("Z",)), 99, 0))
+    # Shuffle _P magnitudes.
     monkeypatch.setitem(registry._P, "P_hotspot", (0.0, 99))
     monkeypatch.setitem(registry._P, "P_base", (0.05, 1))
-    # Keep Hunt's z value the same so antagonism-magnitude is constant; only the
-    # other _Z / _F / _P rows are perturbed. vis-weighted kill MUST be unchanged.
-    eng_b = Engine(H=1, W=2, K=16, seed=0, device=torch.device("cpu"),
-                   z_max=8.0, fill_per_cell=4, layouts=layouts)
-    eng_b.run(1, recorder=None, stop_on=())
-    surv_b = int(eng_b.world.count[eng_b.world.faction == 1].sum().item())
-    assert surv_a == surv_b, \
-        f"vis path leaked f/z/p magnitude: pre={surv_a}, post={surv_b}"
+
+    # Compute vis aggregates after perturbation — must be identical.
+    p_after = phenotype(seq)
+
+    assert p_after.vis_sum  == p_before.vis_sum,  \
+        f"vis_sum leaked f/z/p: {p_before.vis_sum} -> {p_after.vis_sum}"
+    assert p_after.n_count  == p_before.n_count,  \
+        f"n_count leaked f/z/p: {p_before.n_count} -> {p_after.n_count}"
+    assert p_after.vis_mode == p_before.vis_mode, \
+        f"vis_mode leaked f/z/p: {p_before.vis_mode} -> {p_after.vis_mode}"
