@@ -1,4 +1,5 @@
 # tests/test_reproduction.py
+import pytest
 import torch
 from des.world import World, init_bb0
 from des.kernels.reproduction import phase2_reproduce, ArrivalBuffer
@@ -96,9 +97,10 @@ _LOCKED_SLOTS   = {1, 5, 7}            # F4Nr1 / BroadSweep / P_base
 def test_mutation_only_hits_mutable_slots():
     """Every outcome's changed positions must be a subset of the 6 design-mutable
     slots; backbone-locked positions {1,5,7} must NEVER change."""
+    from des.registry import motif_blocks
     seq = BB0_TEMPLATE["layout"]
     spec = _phenotype(seq).spectrum
-    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
+    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec, motif_blocks(seq))
     changed = set()
     for child in children:
         for i, (a, b) in enumerate(zip(seq, child)):
@@ -115,9 +117,10 @@ def test_mutation_only_hits_mutable_slots():
 def test_mutation_spreads_across_mutable_slots():
     """The outcome set must reach MORE THAN ONE distinct mutable slot
     (FAILS under the old idxs[0]-only code that always hit position 0)."""
+    from des.registry import motif_blocks
     seq = BB0_TEMPLATE["layout"]
     spec = _phenotype(seq).spectrum
-    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
+    children, _ = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec, motif_blocks(seq))
     changed = set()
     for child in children:
         for i, (a, b) in enumerate(zip(seq, child)):
@@ -130,9 +133,22 @@ def test_mutation_spreads_across_mutable_slots():
 
 def test_mutation_outcomes_weights_normalized():
     """Weights sum to 1 (a proper categorical) and align 1:1 with children."""
+    from des.registry import motif_blocks
     seq = BB0_TEMPLATE["layout"]
     spec = _phenotype(seq).spectrum
-    children, weights = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec)
+    children, weights = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spec, motif_blocks(seq))
     assert len(children) == len(weights) == len(_MUTABLE_SLOTS) * len(spec)
     assert abs(sum(weights) - 1.0) < 1e-6, f"weights sum to {sum(weights)}, expected 1.0"
+
+
+def test_mutation_outcomes_signature_takes_blocks():
+    """Regression: post-S6 _mutation_outcomes accepts a 4th positional `blocks` arg.
+    Calling with the legacy 3-arg form must raise."""
+    from des.kernels.reproduction import _mutation_outcomes
+    from des.registry import _spectrum_for, BB0_TEMPLATE
+    seq = BB0_TEMPLATE["layout"]
+    mutable = BB0_TEMPLATE["mutable"]
+    spectrum = _spectrum_for("P_base")
+    with pytest.raises(TypeError):
+        _mutation_outcomes(seq, mutable, spectrum)  # missing blocks arg
 

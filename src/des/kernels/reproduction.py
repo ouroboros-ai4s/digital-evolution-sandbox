@@ -2,7 +2,7 @@
 from __future__ import annotations
 import torch
 from des.kernels.common import fires_this_tick, binom
-from des.registry import BB0_TEMPLATE
+from des.registry import BB0_TEMPLATE, motif_blocks
 
 
 class ArrivalBuffer:
@@ -31,18 +31,29 @@ class ArrivalBuffer:
                 torch.cat(self._fac))
 
 
-def _mutation_outcomes(seq, mutable, spectrum):
+def _mutation_outcomes(seq, mutable, spectrum, blocks):
     """Per-parent mutation categorical (design L246: uniform mutable slot x spectrum
     letter). Returns (child_sequences, weights) over the full slot x spectrum product;
-    weights sum to 1. Self-loops (letter == current) yield child == parent. Pure fn of
-    the sequence + its spectrum -- reads no world state."""
+    weights sum to 1. Self-loops (letter == current) yield child == parent. Pure fn
+    of the sequence + its spectrum + its motif-block decomposition (S6).
+    Residue slot → singleton overwrite. Motif slot → whole-block overwrite with the
+    equal-length target letter (block boundaries come from `blocks`)."""
     slot_idx = [i for i, ok in enumerate(mutable) if ok]
     if not slot_idx or not spectrum:
         return [], []
+    # index -> (start, end) of the block covering position i.
+    # residue letters are length-1 blocks; this map is total over 0..len(seq)-1.
+    cover: dict[int, tuple[int, int]] = {}
+    for s, e, _ in blocks:
+        for k in range(s, e):
+            cover[k] = (s, e)
     children, weights = [], []
     for s in slot_idx:                      # ascending: canonical order
         for letter, q in spectrum:          # spectrum already sorted in _spectrum_for
-            new = list(seq); new[s] = letter
+            start, end = cover[s]
+            new = list(seq)
+            for k in range(start, end):      # overwrite the whole covering block
+                new[k] = letter
             children.append(tuple(new))
             weights.append(q / len(slot_idx))
     return children, weights
@@ -131,7 +142,8 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
                 continue
             seq = table.sequence_of(p)
             spectrum = table.phenotype_of(p).spectrum
-            children, weights = _mutation_outcomes(seq, BB0_TEMPLATE["mutable"], spectrum)
+            children, weights = _mutation_outcomes(
+                seq, BB0_TEMPLATE["mutable"], spectrum, motif_blocks(seq))
             if not children:
                 continue                                  # no mutation possible -> stays parent
             out_sid = [table.get_or_mint(c) for c in children]  # self-loop -> parent sid
