@@ -31,3 +31,7 @@ class Phenotype:
     vis_mode: int = 0         # S1: 0=none, 1=vis-weighted, 2=inverse-vis-weighted
     in_place: bool = False    # S4: FSTACK — emit in source cell, kernel skips direction roll
     rand_dir: bool = False    # S4: FDRIFT — draw 1-of-4 each firing tick from world RNG
+    f_hi: float = 0.0          # S5: stacked on-window f (== Phenotype.f)
+    f_lo: float = 0.0          # S5: stacked off-window f (static default = f_hi)
+    burst_w: int = 1           # S5: window period (static default 1 → always on)
+    burst_k: int = 1           # S5: on-window length (static default 1 → 100% duty)
