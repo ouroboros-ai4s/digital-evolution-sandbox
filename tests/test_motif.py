@@ -277,3 +277,84 @@ def test_predicate_vocabulary_fits_int64():
     """Module-level assertion: highest bit must fit signed int64."""
     from des.registry import PREDICATE_BITS
     assert max(PREDICATE_BITS.values()) < 63
+
+
+def test_feature_mask_of_sets_family_bit_per_letter():
+    """A v1 all-residue sequence sets only family_* bits + no motif_* / motif3_* bits."""
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    seq = ("F4Nr1", "N0", "BroadSweep")
+    m = feature_mask_of(seq)
+    assert m & PREDICATE_BIT["family_F"]
+    assert m & PREDICATE_BIT["family_N"]
+    assert m & PREDICATE_BIT["family_Z"]
+    # no P letter → no family_P bit set
+    assert not (m & PREDICATE_BIT["family_P"])
+    # no motif blocks → motif_* / motif3_* all clear
+    for k in ("motif_F", "motif_P", "motif_Z", "motif_N",
+              "motif3_F", "motif3_P", "motif3_Z"):
+        assert not (m & PREDICATE_BIT[k]), f"unexpected {k} bit set on residue-only seq"
+
+
+def test_feature_mask_of_sets_motif_and_motif3_bits(monkeypatch):
+    """A length-3 motif of family F sets family_F + motif_F + motif3_F."""
+    monkeypatch.setitem(registry.GRAN, "MF3", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF3", 3)
+    monkeypatch.setitem(registry.ALPHABET, "MF3", "F")
+    seq = ("MF3", "MF3", "MF3", "N0", "N0", "BroadSweep", "N0", "P_base") + ("N0",) * 8
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    m = feature_mask_of(seq)
+    assert m & PREDICATE_BIT["family_F"]
+    assert m & PREDICATE_BIT["motif_F"]
+    assert m & PREDICATE_BIT["motif3_F"]
+
+
+def test_feature_mask_of_length2_motif_no_motif3_bit(monkeypatch):
+    """A length-2 motif of family F sets motif_F but NOT motif3_F."""
+    monkeypatch.setitem(registry.GRAN, "MF2", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF2", 2)
+    monkeypatch.setitem(registry.ALPHABET, "MF2", "F")
+    seq = ("MF2", "MF2") + ("N0",) * 14
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    m = feature_mask_of(seq)
+    assert m & PREDICATE_BIT["motif_F"]
+    assert not (m & PREDICATE_BIT["motif3_F"])
+
+
+def test_prey_mask_for_clauses_family_only_singletons():
+    """v1 prey clauses are single-element family tuples; prey_mask = OR of family_* bits."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("F",), ("Z",)))
+    assert pm == (PREDICATE_BIT["family_F"] | PREDICATE_BIT["family_Z"])
+
+
+def test_prey_mask_for_clauses_motif_clause():
+    """A clause ('F', 'motif') targets motif_F bit only, not family_F."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("F", "motif"),))
+    assert pm == PREDICATE_BIT["motif_F"]
+
+
+def test_prey_mask_for_clauses_motif3_clause():
+    """A clause ('Z', 'motif', 'len>=3') targets motif3_Z bit only."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("Z", "motif", "len>=3"),))
+    assert pm == PREDICATE_BIT["motif3_Z"]
+
+
+def test_antagonism_match_invariant_under_predicate_rewire():
+    """The kernel match expression (prey_mask[i] & feature_mask[j]) != 0 must
+    still pick the same (attacker, prey) pairs on the v1 alphabet — only what
+    each bit means changes, not the match outcome."""
+    from des.registry import phenotype
+    # BroadSweep preys on F-family and Z-family. Build phenotypes for an
+    # F-only prey, Z-only prey, P-only prey, N-only prey, and BroadSweep itself.
+    p_bs   = phenotype(("BroadSweep",))
+    p_f    = phenotype(("F4Nr1",))
+    p_z    = phenotype(("BroadSweep",))
+    p_p    = phenotype(("P_base",))
+    p_n    = phenotype(("N0",))
+    # BroadSweep attacks F-prey and Z-prey, not P, not N
+    assert (p_bs.prey_mask & p_f.feature_mask) != 0
+    assert (p_bs.prey_mask & p_z.feature_mask) != 0
+    assert (p_bs.prey_mask & p_p.feature_mask) == 0
+    assert (p_bs.prey_mask & p_n.feature_mask) == 0

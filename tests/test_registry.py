@@ -29,17 +29,25 @@ def test_phenotype_p_floor():
     # a P letter raises above μ
     assert phenotype(("P_hotspot",)).p_x > MU
 
-def test_feature_mask_is_or_of_letter_bits():
+def test_feature_mask_is_or_of_family_predicate_bits():
+    """Post-S6: feature_mask is OR of family_<X> predicate bits, not letter bits."""
+    from des.registry import PREDICATE_BIT
     p = phenotype(("F4Nr1", "BroadSweep"))
-    assert p.feature_mask == (FEATURE_BIT["F4Nr1"] | FEATURE_BIT["BroadSweep"])
+    assert p.feature_mask & PREDICATE_BIT["family_F"]
+    assert p.feature_mask & PREDICATE_BIT["family_Z"]
+    # no N letter, no P letter
+    assert not (p.feature_mask & PREDICATE_BIT["family_N"])
+    assert not (p.feature_mask & PREDICATE_BIT["family_P"])
 
 def test_broadsweep_prey_targets_F_and_Z_families():
+    """Post-S6: prey_mask is OR of family_<X> predicate bits selected by clauses."""
+    from des.registry import PREDICATE_BIT
     p = phenotype(("BroadSweep",))
-    # prey_mask must include at least one F-family and one Z-family letter bit
-    f_bits = FEATURE_BIT["F4Nr1"] | FEATURE_BIT["F4Nr4"]
-    z_bits = FEATURE_BIT["BroadSweep"]
-    assert p.prey_mask & f_bits
-    assert p.prey_mask & z_bits
+    assert p.prey_mask & PREDICATE_BIT["family_F"]
+    assert p.prey_mask & PREDICATE_BIT["family_Z"]
+    # BroadSweep's clauses select F and Z families only.
+    assert not (p.prey_mask & PREDICATE_BIT["family_P"])
+    assert not (p.prey_mask & PREDICATE_BIT["family_N"])
 
 def test_bb0_template_shape():
     assert len(BB0_TEMPLATE["layout"]) == 16
