@@ -174,23 +174,22 @@ def test_mutation_outcomes_motif_slot_overwrites_whole_block(monkeypatch):
     assert all(abs(w - 1 / 3) < 1e-9 for w in weights)
 
 
-def test_mutation_outcomes_motif_outcome_preserves_layout_length():
+def test_mutation_outcomes_motif_outcome_preserves_layout_length(monkeypatch):
     """Length-fixed invariant: every outcome layout MUST be exactly 16 positions."""
-    import des.registry as reg
-    reg.GRAN["M2x"] = "motif"; reg.MOTIF_LEN["M2x"] = 2; reg.ALPHABET["M2x"] = "F"
-    reg.GRAN["M2y"] = "motif"; reg.MOTIF_LEN["M2y"] = 2; reg.ALPHABET["M2y"] = "Z"
-    try:
-        from des.kernels.reproduction import _mutation_outcomes
-        from des.registry import motif_blocks
-        seq = ("M2x", "M2x") + ("N0",) * 14
-        mutable = (True, True) + (False,) * 14
-        spectrum = (("M2y", 1.0),)
-        children, _ = _mutation_outcomes(seq, mutable, spectrum, motif_blocks(seq))
-        for child in children:
-            assert len(child) == 16
-    finally:
-        del reg.GRAN["M2x"]; del reg.MOTIF_LEN["M2x"]; del reg.ALPHABET["M2x"]
-        del reg.GRAN["M2y"]; del reg.MOTIF_LEN["M2y"]; del reg.ALPHABET["M2y"]
+    monkeypatch.setitem(registry.GRAN, "M2x", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2x", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2x", "F")
+    monkeypatch.setitem(registry.GRAN, "M2y", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "M2y", 2)
+    monkeypatch.setitem(registry.ALPHABET, "M2y", "Z")
+    from des.kernels.reproduction import _mutation_outcomes
+    from des.registry import motif_blocks
+    seq = ("M2x", "M2x") + ("N0",) * 14
+    mutable = (True, True) + (False,) * 14
+    spectrum = (("M2y", 1.0),)
+    children, _ = _mutation_outcomes(seq, mutable, spectrum, motif_blocks(seq))
+    for child in children:
+        assert len(child) == 16
 
 
 def test_n_locked_default_bb0_FPZ_counts_1_each():
@@ -350,7 +349,9 @@ def test_antagonism_match_invariant_under_predicate_rewire():
     # F-only prey, Z-only prey, P-only prey, N-only prey, and BroadSweep itself.
     p_bs   = phenotype(("BroadSweep",))
     p_f    = phenotype(("F4Nr1",))
-    p_z    = phenotype(("BroadSweep",))
+    # v1 has only one Z-family primitive (BroadSweep), so Z-prey is unavoidably the same.
+    # The test still verifies the predicate-bit encoding preserves the match relation.
+    p_z    = phenotype(("BroadSweep",))  # same as p_bs — only Z letter in v1
     p_p    = phenotype(("P_base",))
     p_n    = phenotype(("N0",))
     # BroadSweep attacks F-prey and Z-prey, not P, not N
