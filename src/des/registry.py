@@ -104,6 +104,25 @@ def motif_blocks(layout: tuple[str, ...]) -> tuple[tuple[int, int, str], ...]:
     return tuple(blocks)
 
 
+def n_locked(layout: tuple[str, ...], chan: str) -> int:
+    """Count locked-position blocks whose family equals `chan`. Motif and
+    residue blocks each count as 1 (per primitive-roster.md OPEN-1 ②).
+    Only blocks whose entire span lies inside `_LOCKED.keys()` are counted —
+    a motif straddling locked and non-locked positions is excluded.
+    `chan` must be one of {"F", "P", "Z"}; "N" is never counted (spec §3.4)."""
+    if chan not in ("F", "P", "Z"):
+        raise ValueError(
+            f"n_locked: chan must be one of F/P/Z, got {chan!r} (N never counts)")
+    locked_positions = set(_LOCKED.keys())
+    count = 0
+    for s, e, letter in motif_blocks(layout):
+        if not all(k in locked_positions for k in range(s, e)):
+            continue
+        if ALPHABET.get(letter) == chan:
+            count += 1
+    return count
+
+
 def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     """Pure function of the sequence only. No world-state, no neighbors, no tick.
     κ=0 in v1 — no self-coordination neighbor scan."""

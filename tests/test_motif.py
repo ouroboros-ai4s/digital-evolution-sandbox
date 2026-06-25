@@ -191,3 +191,61 @@ def test_mutation_outcomes_motif_outcome_preserves_layout_length():
     finally:
         del reg.GRAN["M2x"]; del reg.MOTIF_LEN["M2x"]; del reg.ALPHABET["M2x"]
         del reg.GRAN["M2y"]; del reg.MOTIF_LEN["M2y"]; del reg.ALPHABET["M2y"]
+
+
+def test_n_locked_default_bb0_FPZ_counts_1_each():
+    """Default BB0 has F4Nr4 at index 1, BroadSweep at index 5, P_base at index 7
+    — three residue letters at locked positions → F:1 P:1 Z:1."""
+    from des.registry import n_locked, BB0_TEMPLATE
+    layout = BB0_TEMPLATE["layout"]
+    assert n_locked(layout, "F") == 1
+    assert n_locked(layout, "P") == 1
+    assert n_locked(layout, "Z") == 1
+
+
+def test_n_locked_rejects_N_channel():
+    """N never counts (spec §3.4)."""
+    from des.registry import n_locked, BB0_TEMPLATE
+    with pytest.raises(ValueError):
+        n_locked(BB0_TEMPLATE["layout"], "N")
+
+
+def test_n_locked_rejects_unknown_channel():
+    from des.registry import n_locked, BB0_TEMPLATE
+    with pytest.raises(ValueError):
+        n_locked(BB0_TEMPLATE["layout"], "X")
+
+
+def test_n_locked_counts_motif_block_as_one(monkeypatch):
+    """A locked motif of family F (length 3) counts as 1 F-block, not 3."""
+    monkeypatch.setitem(registry.GRAN, "MF3", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF3", 3)
+    monkeypatch.setitem(registry.ALPHABET, "MF3", "F")
+    # Patch _LOCKED to require positions 0,1,2 to be the MF3 motif so the block
+    # lies entirely inside locked positions. Original _LOCKED is restored by
+    # monkeypatch's tearDown.
+    monkeypatch.setattr(registry, "_LOCKED", {0: "MF3", 1: "MF3", 2: "MF3",
+                                              5: "BroadSweep", 7: "P_base"})
+    layout = ("MF3", "MF3", "MF3", "N0", "N0", "BroadSweep",
+              "N0", "P_base") + ("N0",) * 8
+    assert registry.n_locked(layout, "F") == 1
+    assert registry.n_locked(layout, "P") == 1
+    assert registry.n_locked(layout, "Z") == 1
+
+
+def test_n_locked_excludes_block_partially_outside_locked_set(monkeypatch):
+    """A motif block that straddles a locked position and a non-locked position
+    is NOT a locked block — n_locked counts only blocks that lie entirely
+    inside _LOCKED."""
+    monkeypatch.setitem(registry.GRAN, "MF2", "motif")
+    monkeypatch.setitem(registry.MOTIF_LEN, "MF2", 2)
+    monkeypatch.setitem(registry.ALPHABET, "MF2", "F")
+    # _LOCKED only contains position 1 (not 2). The MF2 block spans 1..3 → not all locked.
+    monkeypatch.setattr(registry, "_LOCKED", {1: "MF2", 5: "BroadSweep", 7: "P_base"})
+    layout = ("N0", "MF2", "MF2", "N0", "N0", "BroadSweep",
+              "N0", "P_base") + ("N0",) * 8
+    # The single MF2 block (1, 3, 'MF2') is not fully inside _LOCKED={1,5,7}
+    # → it does NOT contribute to n_locked("F"); the count is 0 for F.
+    assert registry.n_locked(layout, "F") == 0
+    assert registry.n_locked(layout, "Z") == 1
+    assert registry.n_locked(layout, "P") == 1
