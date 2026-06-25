@@ -266,3 +266,17 @@ def test_existing_F_rows_are_7_tuple_post_s5():
     assert f4nr4[4] == 0.50
     assert f4nr4[5] == 1
     assert f4nr4[6] == 1
+
+
+def test_s5_alphabet_contains_FBURST_and_F_NOVA():
+    from des.registry import ALPHABET
+    assert "FBURST" in ALPHABET
+    assert "F_NOVA" in ALPHABET
+    assert ALPHABET["FBURST"] == "F"
+    assert ALPHABET["F_NOVA"] == "F"
+
+
+def test_s5_gran_covers_FBURST_and_F_NOVA():
+    from des.registry import GRAN, ALPHABET
+    for letter in ALPHABET:
+        assert letter in GRAN, f"{letter} missing from GRAN"

@@ -33,6 +33,9 @@ ALPHABET = {
     "FFRONT":  "F",
     "F4Nr3":   "F",
     "FDRIFT":  "F",
+    # S5: F-pool phase-window primitives (spec §3.2)
+    "FBURST":  "F",
+    "F_NOVA":  "F",
 }
 
 # Granularity per primitive (S6). residue = single position; motif = N consecutive
@@ -62,6 +65,9 @@ GRAN: dict[str, str] = {
     "FFRONT":  "motif",
     "F4Nr3":   "residue",
     "FDRIFT":  "residue",
+    # S5: F-pool phase-window primitives
+    "FBURST":  "residue",
+    "F_NOVA":  "residue",
 }
 
 # Span length per motif primitive. residue letters MUST NOT appear here.
@@ -101,6 +107,9 @@ VIS: dict[str, float] = {
     "FFRONT":  0.0,
     "F4Nr3":   0.0,
     "FDRIFT":  0.0,
+    # S5: F-pool phase-window primitives (all non-N letters carry 0.0)
+    "FBURST":  0.0,
+    "F_NOVA":  0.0,
 }
 for _letter, _v in VIS.items():
     assert 0.0 <= _v <= 1.0, f"VIS[{_letter!r}] = {_v} outside [0,1]"
@@ -187,6 +196,9 @@ _F = {    # name -> (f, directions, p_leave, period, f_lo, burst_w, burst_k)
     "FFRONT":  (0.50, "hash:ffront",   0.25, 4, 0.50, 1, 1),
     "F4Nr3":   (0.40, "hash:f4nr3",    0.12, 5, 0.40, 1, 1),
     "FDRIFT":  (0.15, "rand:1of4",     0.30, 2, 0.15, 1, 1),
+    # S5: 2 new phase-window F primitives (spec §3.2 verbatim)
+    "FBURST":  (0.55, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.20, 2, 0.05, 12, 2),
+    "F_NOVA":  (0.85, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.50, 2, 0.05, 20, 1),
 }
 _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # prey_clauses: tuple of clause-tuples. Each clause selects ONE predicate
