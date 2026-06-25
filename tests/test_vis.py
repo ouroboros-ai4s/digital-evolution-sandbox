@@ -109,3 +109,153 @@ def test_phenotype_z_row_3_tuple_back_compat(monkeypatch):
     seq = ("Z3",) + ("N0",) * 15
     p = phenotype(seq)
     assert p.vis_mode == 0
+
+
+import torch
+
+
+def _bb0_with_slot0(letter: str) -> tuple:
+    """Return a valid BB0 layout with `letter` at slot position 0.
+    All locked positions (_LOCKED) stay correct; other positions stay N0."""
+    from des.registry import _LOCKED
+    return tuple(letter if i == 0 else _LOCKED.get(i, "N0") for i in range(16))
+
+
+def _build_eng_with_synthetic_hunter(monkeypatch, mode, prey_letter, prey_vis):
+    """Helper: build a minimal engine where faction-0 has a synthetic Z hunter
+    (mode=1 or 2, prey={N}) and faction-1 has a prey N letter with VIS=prey_vis.
+    Small K/fill so prey survives one tick with a measurable count.
+    Returns the engine (not yet run)."""
+    monkeypatch.setitem(registry.ALPHABET, "Hunt", "Z")
+    monkeypatch.setitem(registry.GRAN, "Hunt", "residue")
+    monkeypatch.setitem(registry.VIS, "Hunt", 0.0)
+    monkeypatch.setitem(registry._Z, "Hunt",
+                        (0.40, (("N",),), 5, mode))
+    monkeypatch.setitem(registry.ALPHABET, prey_letter, "N")
+    monkeypatch.setitem(registry.GRAN, prey_letter, "residue")
+    monkeypatch.setitem(registry.VIS, prey_letter, prey_vis)
+    from des.engine import Engine
+    hunter_layout = _bb0_with_slot0("Hunt")
+    prey_layout   = _bb0_with_slot0(prey_letter)
+    layouts = (hunter_layout, prey_layout, hunter_layout, prey_layout)
+    # K=64, fill=32: raw_kill=round(32*0.40)=13.
+    # Mode-1 scaled kill: floor(13 * vis_sum / 16).
+    #   vis_sum_hi = 0.95 + 15*0.20 = 3.95 → floor(13*3.95/16) = floor(3.21) = 3
+    #   vis_sum_lo = 0.05 + 15*0.20 = 3.05 → floor(13*3.05/16) = floor(2.48) = 2
+    # Different → test can distinguish. Prey starts at 32, loses a few counts → survives.
+    return Engine(H=2, W=2, K=64, seed=0, device=torch.device("cpu"),
+                  z_max=8.0, fill_per_cell=32, layouts=layouts)
+
+
+def test_mode0_byte_identical_to_pre_s1():
+    """The default BB0 4-faction symmetric run after 3 ticks must produce
+    a world state byte-identical between two engines built with the same seed
+    — the kernel mode-0 branch SKIPs the multiply (regression lock)."""
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    seed = 0
+    eng_a = Engine(H=8, W=8, K=16, seed=seed, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_b = Engine(H=8, W=8, K=16, seed=seed, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_a.run(3, recorder=None, stop_on=())
+    eng_b.run(3, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id)
+
+
+def _run_antagonism_direct(phe, h_sid, p_sid, fill=100):
+    """Place hunter (faction 0) and prey (faction 1) in same cell and run
+    phase1_antagonism once. Returns (hunter_after, prey_after) counts."""
+    from des.kernels.antagonism import phase1_antagonism
+    H, W, K = 1, 1, 4
+    strain_id = torch.zeros(H, W, K, dtype=torch.int32)
+    count     = torch.zeros(H, W, K, dtype=torch.int32)
+    faction   = torch.zeros(H, W, K, dtype=torch.int8)
+    strain_id[0, 0, 0] = h_sid
+    count[0, 0, 0]     = fill
+    faction[0, 0, 0]   = 0
+    strain_id[0, 0, 1] = p_sid
+    count[0, 0, 1]     = fill
+    faction[0, 0, 1]   = 1
+    birth = torch.zeros(H, W, K, dtype=torch.int32)
+    gen   = torch.Generator()
+    gen.manual_seed(0)
+    new = phase1_antagonism(strain_id, count, faction, phe,
+                            birth, T=0, z_max=8.0, generator=gen)
+    return int(new[0, 0, 0].item()), int(new[0, 0, 1].item())
+
+
+def _build_phe_for_vis_test(monkeypatch, mode, prey_letter, prey_vis):
+    """Build a StrainTable with a synthetic Hunt Z (mode=mode) and a prey N
+    letter at prey_vis. Prey layout has no Z primitive so it cannot retaliate
+    and die via self-loss. Returns (phe, h_sid, p_sid)."""
+    monkeypatch.setitem(registry.ALPHABET, "Hunt", "Z")
+    monkeypatch.setitem(registry.GRAN,     "Hunt", "residue")
+    monkeypatch.setitem(registry.VIS,      "Hunt", 0.0)
+    monkeypatch.setitem(registry._Z,       "Hunt",
+                        (0.40, (("N",),), 1, mode))   # period=1 → always fires
+    monkeypatch.setitem(registry.ALPHABET, prey_letter, "N")
+    monkeypatch.setitem(registry.GRAN,     prey_letter, "residue")
+    monkeypatch.setitem(registry.VIS,      prey_letter, prey_vis)
+    from des.phenotype_cache import StrainTable
+    # Hunter: Hunt Z + 15 prey_letter N slots (all same vis for clean signal).
+    # Prey: 16 prey_letter N slots, no Z → no retaliation → no self-loss death.
+    hunter_seq = ("Hunt",)       + (prey_letter,) * 15
+    prey_seq   = (prey_letter,)  * 16
+    t = StrainTable()
+    h_sid = t.get_or_mint(hunter_seq)
+    p_sid = t.get_or_mint(prey_seq)
+    phe = t.phenotype_arrays(torch.device("cpu"))
+    return phe, h_sid, p_sid
+
+
+def test_mode1_high_vis_prey_dies_faster_than_low_vis(monkeypatch):
+    """Scatter-Nip mode 1: prey vis=0.95 must lose more count than prey
+    vis=0.05 after one antagonism phase, all else equal."""
+    phe_hi, h_hi, p_hi = _build_phe_for_vis_test(monkeypatch, 1, "N_hi",  0.95)
+    phe_lo, h_lo, p_lo = _build_phe_for_vis_test(monkeypatch, 1, "N_lo",  0.05)
+    _, prey_hi = _run_antagonism_direct(phe_hi, h_hi, p_hi)
+    _, prey_lo = _run_antagonism_direct(phe_lo, h_lo, p_lo)
+    assert prey_hi < prey_lo, f"hi-vis prey={prey_hi}, lo-vis prey={prey_lo}"
+
+
+def test_mode2_low_vis_prey_dies_faster_than_high_vis(monkeypatch):
+    """Ghost-Spike mode 2: inverse. Prey vis=0.05 must lose more count than
+    prey vis=0.95 after one antagonism phase."""
+    phe_hi, h_hi, p_hi = _build_phe_for_vis_test(monkeypatch, 2, "N_hi2", 0.95)
+    phe_lo, h_lo, p_lo = _build_phe_for_vis_test(monkeypatch, 2, "N_lo2", 0.05)
+    _, prey_hi = _run_antagonism_direct(phe_hi, h_hi, p_hi)
+    _, prey_lo = _run_antagonism_direct(phe_lo, h_lo, p_lo)
+    assert prey_lo < prey_hi, f"hi-vis prey={prey_hi}, lo-vis prey={prey_lo}"
+
+
+def test_mode1_empty_n_profile_kills_zero(monkeypatch):
+    """Mode-1 hunter targeting {N}: prey where all N letters have vis=0.0
+    must not lose count FROM THE HUNTER (vis_sum=0 → p_hit=0 → floor(raw*0)=0).
+    The prey layout must have no Z primitive so it cannot retaliate and die
+    via self-loss. We bypass validate_bb0_layout by building StrainTable directly."""
+    monkeypatch.setitem(registry.ALPHABET, "Hunt", "Z")
+    monkeypatch.setitem(registry.GRAN,     "Hunt", "residue")
+    monkeypatch.setitem(registry.VIS,      "Hunt", 0.0)
+    monkeypatch.setitem(registry._Z,       "Hunt",
+                        (0.40, (("N",),), 1, 1))   # period=1 → always fires
+    # Synthetic inert N letter: vis=0.0, no Z primitive.
+    monkeypatch.setitem(registry.ALPHABET, "Ninert", "N")
+    monkeypatch.setitem(registry.GRAN,     "Ninert", "residue")
+    monkeypatch.setitem(registry.VIS,      "Ninert", 0.0)
+    from des.phenotype_cache import StrainTable
+    # Build a prey layout with only Ninert and F4Nr1 — no Z → prey won't retaliate.
+    hunter_seq = ("Hunt",) + ("Ninert",) * 15
+    prey_seq   = ("F4Nr1",) + ("Ninert",) * 15   # no Z, vis_sum=0
+    t = StrainTable()
+    h_sid = t.get_or_mint(hunter_seq)
+    p_sid = t.get_or_mint(prey_seq)
+    phe = t.phenotype_arrays(torch.device("cpu"))
+    assert phe["vis_sum"][p_sid].item() == 0.0, "sanity: prey vis_sum must be 0"
+    assert phe["z_raw"][p_sid].item() == 0.0, "sanity: prey must have no Z"
+    _, prey_after = _run_antagonism_direct(phe, h_sid, p_sid, fill=100)
+    # vis_sum=0 → p_hit=0 → scaled kill=0 → prey count unchanged.
+    assert prey_after == 100, f"expected prey=100, got {prey_after}"

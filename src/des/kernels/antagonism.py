@@ -75,6 +75,30 @@ def phase1_antagonism(
     raw_kill = torch.where(valid, (a_i * z_i).round(),
                            torch.zeros_like(a_i))    # [H, W, K_i, K_j]
 
+    # --- S1: vis-mode hit weighting ---
+    # Mode-0 attackers SKIP the multiply entirely (bit-identical default path).
+    # Mode-1: scale raw_kill by vis_sum_prey / L  (scatter-nip: high-vis dies faster)
+    # Mode-2: scale raw_kill by max(0, n_count_prey - vis_sum_prey) / L
+    #         (ghost-spike: low-vis dies faster)
+    # Branch only activates when at least one attacker slot has vis_mode > 0.
+    _vis_mode_i = phe["vis_mode"][sid_long].to(torch.int32)       # [H, W, K]
+    _mode_mask  = _vis_mode_i > 0                                  # [H, W, K]
+    if _mode_mask.any():
+        L = 16.0
+        # Prey phenotype: gather over K (j axis), then unsqueeze to [H, W, 1, K_j]
+        _vis_sum_j  = phe["vis_sum"][sid_long].to(torch.float32).unsqueeze(-2)   # [H, W, 1, K_j]
+        _n_count_j  = phe["n_count"][sid_long].to(torch.float32).unsqueeze(-2)   # [H, W, 1, K_j]
+        _p_hit_m1   = _vis_sum_j / L                               # [H, W, 1, K_j]
+        _p_hit_m2   = torch.clamp(_n_count_j - _vis_sum_j, min=0.0) / L
+        # Attacker mode: [H, W, K_i, 1] for broadcast
+        _mode_col   = _vis_mode_i.unsqueeze(-1)                    # [H, W, K_i, 1]
+        _p_hit      = torch.where(_mode_col == 1, _p_hit_m1,
+                          torch.where(_mode_col == 2, _p_hit_m2,
+                                      torch.ones_like(_p_hit_m1)))  # [H, W, K_i, K_j]
+        _active     = (_mode_col > 0).expand_as(raw_kill)           # [H, W, K_i, K_j]
+        _scaled     = (raw_kill.to(torch.float32) * _p_hit).floor().to(raw_kill.dtype)
+        raw_kill    = torch.where(_active, _scaled, raw_kill)
+
     # --- proportional cap: total kills on j must not exceed count[j] ---
     b_j = count.unsqueeze(-2).float()               # [H, W, 1, K_j]
     raw_total_on_j = raw_kill.sum(dim=-2, keepdim=True)  # [H, W, 1, K_j]
