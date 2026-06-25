@@ -92,13 +92,15 @@ _F = {    # name -> (f, directions, p_leave, period)
     "F4Nr1": (0.30, ((-1, 0),), 0.05, 4),
     "F4Nr4": (0.50, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.15, 5),
 }
-_Z = {    # name -> (z, prey_clauses, period)
+_Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # prey_clauses: tuple of clause-tuples. Each clause selects ONE predicate
     # bit; the prey_mask is the OR over clauses. v1 clauses are single-element
     # family tuples → identical kernel-match outcomes to the pre-S6 family code.
     # Future motif-specialist Z rows will use multi-element clauses like
     # ("F", "motif") or ("Z", "motif", "len>=3").
-    "BroadSweep": (0.40, (("F",), ("Z",)), 5),
+    # vis_mode (S1): 0=none, 1=vis-weighted, 2=inverse-vis-weighted.
+    # The 4th element is OPTIONAL: a 3-tuple row defaults vis_mode to 0.
+    "BroadSweep": (0.40, (("F",), ("Z",)), 5, 0),
 }
 _P = {    # name -> (p_add, period); effective rate = min(p_max, μ + p_add)
     "P_base": (0.0, 1),
@@ -235,6 +237,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     z_sum = 0.0
     vis_sum = 0.0
     n_count = 0
+    vis_mode = 0          # S1: max-over-Z-rows vis_mode
     prey_clauses: list[tuple[str, ...]] = []
     directions: list[tuple[int, int]] = []
     periods: list[int] = []
@@ -260,7 +263,11 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
             f_periods.append(per)
             phase_type = PhaseType.REPRODUCTION
         elif letter in _Z:
-            z, clauses, per = _Z[letter]
+            row = _Z[letter]
+            z, clauses, per = row[0], row[1], row[2]
+            mode = row[3] if len(row) >= 4 else 0
+            if mode > vis_mode:
+                vis_mode = mode
             z_sum += z
             prey_clauses.extend(clauses)
             periods.append(per)
@@ -295,7 +302,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
         spectrum=spectrum, period=period,
         repro_period=repro_period, anta_period=anta_period, dir_bits=dir_bits,
         phase_type=phase_type, fold=(),
-        vis_sum=vis_sum, n_count=n_count,
+        vis_sum=vis_sum, n_count=n_count, vis_mode=vis_mode,
     )
 
 
