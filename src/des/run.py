@@ -71,3 +71,27 @@ def pick_device(device=None, force_cpu: bool = False) -> torch.device:
     if device is not None:
         return device
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def compute_match_result(eng, parquet_path: str) -> dict:
+    """Final-tick match result. Reads the engine's in-memory final world
+    snapshot (NOT a parquet read-back — the parquet footer isn't written
+    until Recorder.close()). Reuses webapp.readouts.compute_readouts as
+    the single source for total/share/n2/d_max definitions.
+    Returns: {"path": str, "ticks": int, "final": <compute_readouts return>}.
+    No 'winner' field — the sandbox stays goal-free; the AI player decides."""
+    from webapp.readouts import compute_readouts
+
+    cnt = eng.world.count.cpu()
+    sid = eng.world.strain_id.cpu()
+    fac = eng.world.faction.cpu()
+    nz = torch.nonzero(cnt > 0, as_tuple=False)
+    ys = nz[:, 0].tolist()
+    xs = nz[:, 1].tolist()
+    ks = nz[:, 2]
+    sids = sid[nz[:, 0], nz[:, 1], ks].tolist()
+    facs = fac[nz[:, 0], nz[:, 1], ks].tolist()
+    cnts = cnt[nz[:, 0], nz[:, 1], ks].tolist()
+    strains = [".".join(eng.table.sequence_of(int(s))) for s in sids]
+    final = compute_readouts(xs, ys, strains, facs, cnts)
+    return {"path": parquet_path, "ticks": int(eng.T), "final": final}
