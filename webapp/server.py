@@ -1,6 +1,6 @@
-"""aiohttp viz server for the DES engine. This module's pure helpers
-(layout_from_slots / build_engine_from_config) are unit-tested without the
-event loop; the aiohttp app + WebSocket live loop are added on top."""
+"""aiohttp viz server for the DES engine. Engine assembly lives in des.run
+(layout_from_slots / build_engine_from_config); this module wires the
+aiohttp app + WebSocket live loop on top."""
 from __future__ import annotations
 import os
 import datetime
