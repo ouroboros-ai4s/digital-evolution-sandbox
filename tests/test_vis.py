@@ -233,3 +233,58 @@ def test_mode1_empty_n_profile_kills_zero(monkeypatch):
     _, prey_after = _run_antagonism_direct(phe, h_sid, p_sid, fill=100)
     # vis_sum=0 → p_hit=0 → scaled kill=0 → prey count unchanged.
     assert prey_after == 100, f"expected prey=100, got {prey_after}"
+
+
+def test_feature_mask_vis_lowvis_set_on_default_bb0():
+    """N0 vis = 0.20 ≤ 0.20 (inclusive) → vis_lowvis bit SET on default BB0."""
+    from des.registry import feature_mask_of, PREDICATE_BIT, BB0_TEMPLATE
+    m = feature_mask_of(BB0_TEMPLATE["layout"])
+    assert m & PREDICATE_BIT["vis_lowvis"], \
+        "default BB0 strain must SET vis_lowvis bit (N0 vis=0.20)"
+
+
+def test_feature_mask_vis_lowvis_unset_when_all_N_above_threshold(monkeypatch):
+    """Replace N0 in the sequence with a synthetic N letter whose vis>0.20:
+    vis_lowvis bit must be CLEAR."""
+    monkeypatch.setitem(registry.ALPHABET, "Nhi", "N")
+    monkeypatch.setitem(registry.VIS, "Nhi", 0.70)
+    monkeypatch.setitem(registry.GRAN, "Nhi", "residue")
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    seq = ("Nhi",) * 16
+    m = feature_mask_of(seq)
+    assert not (m & PREDICATE_BIT["vis_lowvis"]), \
+        "all-N-above-0.20 strain must NOT set vis_lowvis bit"
+
+
+def test_feature_mask_vis_lowvis_unset_when_no_N_letter(monkeypatch):
+    """A strain with zero N letters cannot satisfy 'any N letter with vis<=0.20'."""
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    seq = ("F4Nr1",) * 16
+    m = feature_mask_of(seq)
+    assert not (m & PREDICATE_BIT["vis_lowvis"])
+
+
+def test_feature_mask_vis_lowvis_inclusive_at_0p20(monkeypatch):
+    """Threshold is ≤ 0.20 (inclusive). A letter with vis exactly 0.20 SETS the bit;
+    a letter with vis 0.2001 does NOT."""
+    monkeypatch.setitem(registry.ALPHABET, "Nexact", "N")
+    monkeypatch.setitem(registry.VIS, "Nexact", 0.20)
+    monkeypatch.setitem(registry.GRAN, "Nexact", "residue")
+    monkeypatch.setitem(registry.ALPHABET, "Nabove", "N")
+    monkeypatch.setitem(registry.VIS, "Nabove", 0.2001)
+    monkeypatch.setitem(registry.GRAN, "Nabove", "residue")
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    assert feature_mask_of(("Nexact",) * 16) & PREDICATE_BIT["vis_lowvis"]
+    assert not (feature_mask_of(("Nabove",) * 16) & PREDICATE_BIT["vis_lowvis"])
+
+
+def test_feature_mask_vis_lowvis_set_if_any_N_meets_threshold(monkeypatch):
+    """'Any' semantics: a strain with one low-vis N and 15 high-vis N letters
+    still SETs the bit."""
+    monkeypatch.setitem(registry.ALPHABET, "Nhi", "N")
+    monkeypatch.setitem(registry.VIS, "Nhi", 0.95)
+    monkeypatch.setitem(registry.GRAN, "Nhi", "residue")
+    from des.registry import feature_mask_of, PREDICATE_BIT
+    seq = ("N0",) + ("Nhi",) * 15           # one N0 (vis=0.20) + 15 high-vis
+    m = feature_mask_of(seq)
+    assert m & PREDICATE_BIT["vis_lowvis"]

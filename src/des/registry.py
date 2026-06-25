@@ -159,11 +159,13 @@ def motif_blocks(layout: tuple[str, ...]) -> tuple[tuple[int, int, str], ...]:
 
 
 def feature_mask_of(sequence: tuple[str, ...]) -> int:
-    """Predicate-bit feature mask for a sequence (S6 §3.5). Sets:
+    """Predicate-bit feature mask for a sequence (S6 §3.5 + S1 §3.3).
+    Sets:
       - family_<X> for every letter present (X = ALPHABET[letter]),
       - motif_<X> if the sequence has at least one motif block of family X,
-      - motif3_<X> if the sequence has a motif block of family X with MOTIF_LEN>=3.
-    Reserved bits (vis_lowvis, thr_*) stay 0 in S6; S1/S3 OR them in.
+      - motif3_<X> if the sequence has a motif block of family X with MOTIF_LEN>=3,
+      - vis_lowvis if the sequence has any fam=N letter with VIS[letter] <= 0.20.
+    Reserved thr_* bits stay 0 in S6/S1; S3 OR them in.
     Pure function of the sequence — reads only registry tables."""
     m = 0
     for letter in sequence:
@@ -180,6 +182,13 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
         m |= PREDICATE_BIT[f"motif_{fam}"]
         if MOTIF_LEN[letter] >= 3 and fam in ("F", "P", "Z"):
             m |= PREDICATE_BIT[f"motif3_{fam}"]
+    # S1: vis_lowvis — any fam=N letter with VIS<=0.20 (inclusive). N0 default
+    # vis=0.20 SETs the bit on the default BB0 strain; harmless because no v1
+    # primitive consumes it (Void Bite is dormant until S8).
+    for letter in sequence:
+        if ALPHABET.get(letter) == "N" and VIS.get(letter, 0.0) <= 0.20:
+            m |= PREDICATE_BIT["vis_lowvis"]
+            break
     return m
 
 
