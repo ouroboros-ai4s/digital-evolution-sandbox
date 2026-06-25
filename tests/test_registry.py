@@ -129,3 +129,23 @@ def test_per_phase_periods_split():
     assert phenotype(("BroadSweep",)).repro_period == 1
     # a strain with no Z letter -> anta_period defaults to 1
     assert phenotype(("F4Nr4",)).anta_period == 1
+
+
+# ---------------------------------------------------------------------------
+# S6 Task 1: GRAN / MOTIF_LEN tables
+# ---------------------------------------------------------------------------
+
+def test_gran_covers_every_alphabet_letter():
+    """GRAN must have one entry per letter in ALPHABET, value in {residue, motif}."""
+    from des.registry import GRAN, ALPHABET
+    assert set(GRAN.keys()) == set(ALPHABET.keys())
+    for letter, gran in GRAN.items():
+        assert gran in ("residue", "motif"), f"{letter}: bad gran {gran!r}"
+
+
+def test_v1_alphabet_is_all_residue_motif_len_empty():
+    """v1 has no motif primitives yet — every letter is residue, MOTIF_LEN is empty."""
+    from des.registry import GRAN, MOTIF_LEN
+    for letter, gran in GRAN.items():
+        assert gran == "residue", f"{letter}: v1 must be residue, got {gran!r}"
+    assert MOTIF_LEN == {}, f"v1 has no motif primitives, got MOTIF_LEN={MOTIF_LEN!r}"

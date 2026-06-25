@@ -16,6 +16,23 @@ ALPHABET = {
     "P_base": "P", "P_hotspot": "P",
     "BroadSweep": "Z",
 }
+
+# Granularity per primitive (S6). residue = single position; motif = N consecutive
+# positions of the SAME letter. Roster tags `gran` explicitly only for N0–N7; every
+# other letter is residue by single-position occupancy. v1 alphabet is all-residue.
+GRAN: dict[str, str] = {
+    "N0":         "residue",
+    "F4Nr1":      "residue",
+    "F4Nr4":      "residue",
+    "P_base":     "residue",
+    "P_hotspot":  "residue",
+    "BroadSweep": "residue",
+}
+
+# Span length per motif primitive. residue letters MUST NOT appear here.
+# v1: empty (no motif primitives — each later spec adds its own rows).
+MOTIF_LEN: dict[str, int] = {}
+
 FEATURE_BIT = {name: 1 << i for i, name in enumerate(sorted(ALPHABET))}
 
 # v1 direction universe: every strain's directions are a subset of these.
