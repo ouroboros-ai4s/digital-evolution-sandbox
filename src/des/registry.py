@@ -233,6 +233,8 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     pl_prod = 1.0
     px_prod = 1.0
     z_sum = 0.0
+    vis_sum = 0.0
+    n_count = 0
     prey_clauses: list[tuple[str, ...]] = []
     directions: list[tuple[int, int]] = []
     periods: list[int] = []
@@ -244,6 +246,9 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     for letter in sequence:
         if letter not in ALPHABET:
             continue
+        if ALPHABET.get(letter) == "N":
+            vis_sum += VIS[letter]
+            n_count += 1
         if letter in _F:
             f, dirs, pl, per = _F[letter]
             f_prod *= (1 - f)
@@ -290,6 +295,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
         spectrum=spectrum, period=period,
         repro_period=repro_period, anta_period=anta_period, dir_bits=dir_bits,
         phase_type=phase_type, fold=(),
+        vis_sum=vis_sum, n_count=n_count,
     )
 
 

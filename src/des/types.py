@@ -26,3 +26,5 @@ class Phenotype:
     dir_bits: int
     phase_type: PhaseType | None
     fold: tuple[frozenset[int], ...]
+    vis_sum: float = 0.0      # S1: Σ_{i: fam=N} VIS[seq[i]]
+    n_count: int = 0          # S1: #{i: fam=N}
