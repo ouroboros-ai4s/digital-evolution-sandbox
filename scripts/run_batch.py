@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 import argparse, os, time, datetime
 import torch
+from des.run import pick_device
 from des.engine import Engine
 from des.recorder import Recorder
 
@@ -114,7 +115,7 @@ def main() -> None:
     ap.add_argument("--cpu", action="store_true", help="force CPU")
     args = ap.parse_args()
 
-    device = torch.device("cpu" if args.cpu or not torch.cuda.is_available() else "cuda")
+    device = pick_device(force_cpu=args.cpu)
     print(f"device={device} | torch={torch.__version__} | "
           f"{torch.cuda.get_device_name(0) if device.type=='cuda' else 'CPU'}")
 
