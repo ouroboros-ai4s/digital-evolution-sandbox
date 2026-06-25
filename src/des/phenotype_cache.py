@@ -62,6 +62,9 @@ class StrainTable:
         period = [1] * n
         repro_period = [1] * n
         anta_period = [1] * n
+        vis_sum = [0.0] * n      # S1: Σ_{i: fam=N} VIS[seq[i]]
+        n_count = [0] * n        # S1: #{i: fam=N}
+        vis_mode_l = [0] * n     # S1: 0=none, 1=vis-weighted, 2=inverse-vis-weighted
         for sid in range(1, n):
             phe = self._id_to_phe[sid]
             if phe is None:
@@ -76,6 +79,9 @@ class StrainTable:
             dir_bits[sid] = phe.dir_bits
             repro_period[sid] = phe.repro_period
             anta_period[sid] = phe.anta_period
+            vis_sum[sid] = phe.vis_sum
+            n_count[sid] = phe.n_count
+            vis_mode_l[sid] = phe.vis_mode
         result = {
             "f": torch.tensor(f, dtype=torch.float32, device=device),
             "p_leave": torch.tensor(p_leave, dtype=torch.float32, device=device),
@@ -87,6 +93,9 @@ class StrainTable:
             "dir_bits": torch.tensor(dir_bits, dtype=torch.int64, device=device),
             "repro_period": torch.tensor(repro_period, dtype=torch.int64, device=device),
             "anta_period": torch.tensor(anta_period, dtype=torch.int64, device=device),
+            "vis_sum": torch.tensor(vis_sum, dtype=torch.float32, device=device),   # S1
+            "n_count": torch.tensor(n_count, dtype=torch.int16, device=device),     # S1
+            "vis_mode": torch.tensor(vis_mode_l, dtype=torch.int8, device=device),  # S1
         }
         # store cache and clear dirty flag
         self._cached_arrays = result
