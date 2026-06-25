@@ -67,13 +67,23 @@ def test_spectrum_residue_path_byte_identical_to_legacy():
     legacy plain-affinity formula (gran-match + renorm, no shape knobs).
     S2 letters with non-default shape (power!=1, mask!=None, or mix!=0) are
     intentional design changes and are excluded from this regression lock."""
-    from des.registry import _spectrum_for, ALPHABET, SPECTRUM_SHAPE
+    from des.registry import _spectrum_for, ALPHABET, SPECTRUM_SHAPE, GRAN, MOTIF_LEN
     from des.registry import affinity, ALPHABET as A
     _DEFAULT_SHAPE = (1.0, None, 0.0)
 
     def legacy(letter):
         src_fam = A[letter]
-        weights = {t: affinity(src_fam, A[t]) for t in A if t != letter}
+        src_gran = GRAN[letter]
+        src_len = MOTIF_LEN.get(letter)
+        weights = {}
+        for t in A:
+            if t == letter:
+                continue
+            if GRAN[t] != src_gran:
+                continue
+            if src_gran == "motif" and MOTIF_LEN[t] != src_len:
+                continue
+            weights[t] = affinity(src_fam, A[t])
         tot = sum(weights.values())
         if tot == 0:
             return ()
