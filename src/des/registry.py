@@ -151,6 +151,40 @@ _P = {    # name -> (p_add, period); effective rate = min(p_max, μ + p_add)
     "P_balanced":       (0.04, 3),
 }
 
+# Mutation spectrum shape per P primitive (S2). Three knobs cover all 12 P
+# rows — no per-primitive special path. (power, family_mask, flatten_mix):
+#   power       : 1=aff, 2=sharpen (P_aic), 3=super-sharpen (P_entropy_brake)
+#   family_mask : None=all, "F"|"Z"|"N"=single family,
+#                 "adjacent"=|Δrank|=1 (P_loopswap_lite)
+#   flatten_mix : 0.0 default, 0.5 (P_ep — ½·aff + ½·1/(|A|-1))
+SPECTRUM_SHAPE: dict[str, tuple[float, "str | None", float]] = {
+    "P_base":           (1.0, None,       0.0),
+    "P_hotspot":        (1.0, None,       0.0),
+    "P_aic":            (2.0, None,       0.0),
+    "P_ep":             (1.0, None,       0.5),
+    "P_fscan":          (1.0, "F",        0.0),
+    "P_zscan":          (1.0, "Z",        0.0),
+    "P_entropy_brake":  (3.0, None,       0.0),
+    "P_loopswap_lite":  (1.0, "adjacent", 0.0),
+    "P_neutral_sink":   (1.0, "N",        0.0),
+    "P_slow_drift":     (1.0, None,       0.0),
+    "P_burst_lite":     (1.0, None,       0.0),
+    "P_balanced":       (1.0, None,       0.0),
+}
+
+assert set(SPECTRUM_SHAPE.keys()) == set(_P.keys()), (
+    "SPECTRUM_SHAPE must be co-extensive with _P; "
+    f"missing={set(_P.keys()) - set(SPECTRUM_SHAPE.keys())}, "
+    f"extra={set(SPECTRUM_SHAPE.keys()) - set(_P.keys())}")
+for _letter, (_power, _mask, _mix) in SPECTRUM_SHAPE.items():
+    assert _power in (1.0, 2.0, 3.0), \
+        f"SPECTRUM_SHAPE[{_letter!r}].power = {_power!r} not in {{1,2,3}}"
+    assert _mask in (None, "F", "Z", "N", "adjacent"), \
+        f"SPECTRUM_SHAPE[{_letter!r}].family_mask = {_mask!r} not in {{None,F,Z,N,adjacent}}"
+    assert 0.0 <= _mix <= 1.0, \
+        f"SPECTRUM_SHAPE[{_letter!r}].flatten_mix = {_mix!r} outside [0,1]"
+del _letter, _power, _mask, _mix
+
 
 def affinity(src_family: str, dst_family: str) -> float:
     d = abs(FAMILY_RANK[src_family] - FAMILY_RANK[dst_family])
