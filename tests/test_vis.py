@@ -6,6 +6,7 @@ build hand-crafted strains via monkeypatching VIS / ALPHABET / _Z to simulate
 future vis-bearing primitives. Production code never mutates these tables."""
 from __future__ import annotations
 import pytest
+import torch
 from des import registry
 from des.registry import phenotype
 
@@ -111,9 +112,6 @@ def test_phenotype_z_row_3_tuple_back_compat(monkeypatch):
     assert p.vis_mode == 0
 
 
-import torch
-
-
 def _bb0_with_slot0(letter: str) -> tuple:
     """Return a valid BB0 layout with `letter` at slot position 0.
     All locked positions (_LOCKED) stay correct; other positions stay N0."""
@@ -121,36 +119,12 @@ def _bb0_with_slot0(letter: str) -> tuple:
     return tuple(letter if i == 0 else _LOCKED.get(i, "N0") for i in range(16))
 
 
-def _build_eng_with_synthetic_hunter(monkeypatch, mode, prey_letter, prey_vis):
-    """Helper: build a minimal engine where faction-0 has a synthetic Z hunter
-    (mode=1 or 2, prey={N}) and faction-1 has a prey N letter with VIS=prey_vis.
-    Small K/fill so prey survives one tick with a measurable count.
-    Returns the engine (not yet run)."""
-    monkeypatch.setitem(registry.ALPHABET, "Hunt", "Z")
-    monkeypatch.setitem(registry.GRAN, "Hunt", "residue")
-    monkeypatch.setitem(registry.VIS, "Hunt", 0.0)
-    monkeypatch.setitem(registry._Z, "Hunt",
-                        (0.40, (("N",),), 5, mode))
-    monkeypatch.setitem(registry.ALPHABET, prey_letter, "N")
-    monkeypatch.setitem(registry.GRAN, prey_letter, "residue")
-    monkeypatch.setitem(registry.VIS, prey_letter, prey_vis)
-    from des.engine import Engine
-    hunter_layout = _bb0_with_slot0("Hunt")
-    prey_layout   = _bb0_with_slot0(prey_letter)
-    layouts = (hunter_layout, prey_layout, hunter_layout, prey_layout)
-    # K=64, fill=32: raw_kill=round(32*0.40)=13.
-    # Mode-1 scaled kill: floor(13 * vis_sum / 16).
-    #   vis_sum_hi = 0.95 + 15*0.20 = 3.95 → floor(13*3.95/16) = floor(3.21) = 3
-    #   vis_sum_lo = 0.05 + 15*0.20 = 3.05 → floor(13*3.05/16) = floor(2.48) = 2
-    # Different → test can distinguish. Prey starts at 32, loses a few counts → survives.
-    return Engine(H=2, W=2, K=64, seed=0, device=torch.device("cpu"),
-                  z_max=8.0, fill_per_cell=32, layouts=layouts)
-
-
 def test_mode0_byte_identical_to_pre_s1():
-    """The default BB0 4-faction symmetric run after 3 ticks must produce
-    a world state byte-identical between two engines built with the same seed
-    — the kernel mode-0 branch SKIPs the multiply (regression lock)."""
+    """Seed determinism: two engines built with the same seed and run 3 ticks
+    produce byte-identical world states. Also serves as a coarse regression
+    check that the vis-mode branch introduces no state-change on the default
+    v1 alphabet (all vis_mode=0). Does not prove the mode-0 branch is a true
+    SKIP rather than ×1.0; the direct-call tests below cover that."""
     from des.engine import Engine
     from des.registry import BB0_TEMPLATE
     seed = 0
