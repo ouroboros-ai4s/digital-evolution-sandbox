@@ -157,3 +157,35 @@ def test_v1_alphabet_is_all_residue_motif_len_empty():
     for letter, gran in GRAN.items():
         assert gran == "residue", f"{letter}: v1 must be residue, got {gran!r}"
     assert MOTIF_LEN == {}, f"v1 has no motif primitives, got MOTIF_LEN={MOTIF_LEN!r}"
+
+
+# ---------------------------------------------------------------------------
+# S1 Task 1: VIS registry table
+# ---------------------------------------------------------------------------
+
+def test_vis_covers_every_alphabet_letter():
+    """Every letter in ALPHABET must have a VIS value (default 0.0 for non-N)."""
+    from des.registry import VIS, ALPHABET
+    for letter in ALPHABET:
+        assert letter in VIS, f"{letter}: missing from VIS table"
+
+
+def test_vis_values_in_unit_interval():
+    """All VIS values must be in [0.0, 1.0] (spec §5)."""
+    from des.registry import VIS
+    for letter, v in VIS.items():
+        assert 0.0 <= v <= 1.0, f"{letter}: vis {v} outside [0,1]"
+
+
+def test_vis_n0_roster_value_is_0p20():
+    """Spec §1: N0 vis = 0.20 (roster value, also drives vis_lowvis bit)."""
+    from des.registry import VIS
+    assert VIS["N0"] == 0.20
+
+
+def test_vis_v1_non_N_letters_are_zero():
+    """v1 non-N letters carry vis=0.0 (the only output of N primitives is vis;
+    F/P/Z primitives never produce vis)."""
+    from des.registry import VIS
+    for letter in ("F4Nr1", "F4Nr4", "P_base", "P_hotspot", "BroadSweep"):
+        assert VIS[letter] == 0.0, f"{letter}: non-N letter must have vis=0.0"

@@ -33,6 +33,23 @@ GRAN: dict[str, str] = {
 # v1: empty (no motif primitives — each later spec adds its own rows).
 MOTIF_LEN: dict[str, int] = {}
 
+# Per-primitive vis (S1). Pure registry value, never per-species. The N pool
+# carries vis ∈ [0,1] from the roster (primitive-roster.md N pool); non-N
+# letters carry 0.0 (vis is the *only* output of N primitives — F/P/Z never
+# emit vis). Module-load asserts the unit-interval bound (spec §5).
+VIS: dict[str, float] = {
+    # v1 alphabet (matches ALPHABET above):
+    "N0":         0.20,   # roster N0 — present in default BB0
+    "F4Nr1":      0.0,
+    "F4Nr4":      0.0,
+    "P_base":     0.0,
+    "P_hotspot":  0.0,
+    "BroadSweep": 0.0,
+}
+for _letter, _v in VIS.items():
+    assert 0.0 <= _v <= 1.0, f"VIS[{_letter!r}] = {_v} outside [0,1]"
+del _letter, _v
+
 # Predicate-bit vocabulary (S6 §3.5). Each bit = a structural predicate, not a
 # letter. Stable indices: S1/S3 will populate the reserved names without
 # renumbering. Total 15 of the 63 available signed-int64 bits.
