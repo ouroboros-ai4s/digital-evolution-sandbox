@@ -1,5 +1,6 @@
 # src/des/registry.py
 from __future__ import annotations
+import zlib
 from des.types import Phenotype, PhaseType, FAMILY_RANK
 
 MU = 0.01          # baseline mutation floor μ (v1 constant; calibration owns it later)
@@ -119,6 +120,38 @@ FEATURE_BIT = {name: 1 << i for i, name in enumerate(sorted(ALPHABET))}
 # bit d (in dir_bits) <-> ALL_DIRECTIONS[d]. Extend if a future F primitive adds a direction.
 ALL_DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 _DIR_BIT = {d: 1 << i for i, d in enumerate(ALL_DIRECTIONS)}
+
+# S4: in-place 方向 sentinel. 不入 ALL_DIRECTIONS, 不入 _DIR_BIT —— FSTACK
+# 走 Phenotype.in_place 的独立内核分支, 与四邻 roll 路径正交.
+IN_PLACE_DIR: tuple[int, int] = (0, 0)
+
+
+def _hash_dirs(seq: tuple[str, ...], kind: str) -> tuple[tuple[int, int], ...]:
+    """S4 hash-locked direction selection. Pure function of the sequence.
+
+    Determinism: stdlib zlib.crc32(\\x1f-joined utf-8 bytes); the \\x1f (unit
+    separator, not in the alphabet) prevents multi-char token concat ambiguity.
+    Python's built-in hash() is salted per process (PYTHONHASHSEED) →不可复现, 致命
+    for a data-generation sandbox; crc32 is byte-identical cross-process / cross-machine.
+
+    kind:
+      "ffront" | "f4nr1" -> ( ALL_DIRECTIONS[h % 4], )                       1 方向
+      "fclump"           -> ( (-1,0), (1,0) ) or ( (0,-1), (0,1) ) per h % 2  一根轴
+      "f4nr3"            -> ALL_DIRECTIONS minus ALL_DIRECTIONS[h % 4]        3 邻
+    """
+    h = zlib.crc32("\x1f".join(seq).encode())
+    if kind in ("ffront", "f4nr1"):
+        return (ALL_DIRECTIONS[h % 4],)
+    if kind == "fclump":
+        if h % 2 == 0:
+            return ((-1, 0), (1, 0))
+        return ((0, -1), (0, 1))
+    if kind == "f4nr3":
+        drop = h % 4
+        return tuple(d for i, d in enumerate(ALL_DIRECTIONS) if i != drop)
+    raise ValueError(f"_hash_dirs: unknown kind {kind!r}; "
+                     "expected one of {'ffront','f4nr1','fclump','f4nr3'}")
+
 
 # per-letter raw outputs (design tables; numbers are formula anchors, not calibrated knobs)
 _F = {    # name -> (f, directions, p_leave, period)
