@@ -67,8 +67,26 @@ def main(argv=None) -> int:
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 1
-    # engine assembly + run + result emission added in Task 5
-    print(json.dumps({"event": "config_validated", "path": args.config}))
+    # imports placed inside main so --help / config-validation errors don't pay
+    # the torch import cost (saves ~1s on cold start; matters for AI orchestrators
+    # that fan out many config-validate-only invocations).
+    from des.run import pick_device, build_engine_from_config, compute_match_result
+    from des.recorder import Recorder
+    try:
+        device = pick_device(force_cpu=args.cpu)
+        eng, resolved = build_engine_from_config(cfg, device)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    os.makedirs(args.out, exist_ok=True)
+    parquet_path = os.path.join(args.out, f"{_now_tag()}-match.parquet")
+    rec = Recorder(parquet_path, eng.table)
+    try:
+        eng.run(int(resolved["T"]), recorder=rec, stop_on=())   # match: run full T
+    finally:
+        rec.close()   # propagates writer-thread death (data loss must not be swallowed)
+    result = compute_match_result(eng, parquet_path)
+    print(json.dumps(result))
     return 0
 
 
