@@ -100,3 +100,61 @@ def test_phenotype_mixed_hash_and_static_F_letters_or_dir_bits(monkeypatch):
     # F4Nr4 全 4 邻 OR-into-dir_bits 后, hash-locked 单方向只会重复一个 bit
     # → dir_bits 仍是 (1 << 4) - 1 = 15
     assert p.dir_bits == (1 << len(reg.ALL_DIRECTIONS)) - 1
+
+
+def test_phenotype_arrays_has_in_place_column():
+    """phe['in_place'] 是 int8 张量, idx 0 (EMPTY) 是 0."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng = Engine(H=8, W=8, K=4, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=2,
+                 layouts=(BB0_TEMPLATE["layout"],) * 4)
+    phe = eng.table.phenotype_arrays(torch.device("cpu"))
+    assert "in_place" in phe
+    assert phe["in_place"].dtype == torch.int8
+    assert int(phe["in_place"][0].item()) == 0
+
+
+def test_phenotype_arrays_has_rand_dir_column():
+    """phe['rand_dir'] 是 int8 张量, idx 0 (EMPTY) 是 0."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng = Engine(H=8, W=8, K=4, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=2,
+                 layouts=(BB0_TEMPLATE["layout"],) * 4)
+    phe = eng.table.phenotype_arrays(torch.device("cpu"))
+    assert "rand_dir" in phe
+    assert phe["rand_dir"].dtype == torch.int8
+    assert int(phe["rand_dir"][0].item()) == 0
+
+
+def test_phenotype_arrays_columns_match_python_phenotype():
+    """对每个 strain, phe[<col>][sid] 必须 == int(Phenotype.<field>)."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng = Engine(H=8, W=8, K=4, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=2,
+                 layouts=(BB0_TEMPLATE["layout"],) * 4)
+    phe = eng.table.phenotype_arrays(torch.device("cpu"))
+    for sid in range(1, len(eng.table) + 1):
+        seq = eng.table.sequence_of(sid)
+        p_obj = eng.table.phenotype_of(sid)
+        assert int(phe["in_place"][sid].item()) == int(p_obj.in_place)
+        assert int(phe["rand_dir"][sid].item()) == int(p_obj.rand_dir)
+
+
+def test_phenotype_arrays_default_bb0_all_zero_for_in_place_and_rand_dir():
+    """默认 BB0 alphabet 里没有 FSTACK / FDRIFT, 所以 in_place / rand_dir
+    全是 0 (kernel 永远不会因这两列误走新分支)."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng = Engine(H=8, W=8, K=4, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=2,
+                 layouts=(BB0_TEMPLATE["layout"],) * 4)
+    phe = eng.table.phenotype_arrays(torch.device("cpu"))
+    assert int(phe["in_place"].max().item()) == 0
+    assert int(phe["rand_dir"].max().item()) == 0

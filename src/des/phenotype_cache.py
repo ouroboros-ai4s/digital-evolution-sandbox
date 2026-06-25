@@ -62,6 +62,8 @@ class StrainTable:
         period = [1] * n
         repro_period = [1] * n
         anta_period = [1] * n
+        in_place_col = [0] * n
+        rand_dir_col = [0] * n
         vis_sum = [0.0] * n      # S1: Σ_{i: fam=N} VIS[seq[i]]
         n_count = [0] * n        # S1: #{i: fam=N}
         vis_mode_l = [0] * n     # S1: 0=none, 1=vis-weighted, 2=inverse-vis-weighted
@@ -79,6 +81,8 @@ class StrainTable:
             dir_bits[sid] = phe.dir_bits
             repro_period[sid] = phe.repro_period
             anta_period[sid] = phe.anta_period
+            in_place_col[sid] = int(phe.in_place)
+            rand_dir_col[sid] = int(phe.rand_dir)
             vis_sum[sid] = phe.vis_sum
             n_count[sid] = phe.n_count
             vis_mode_l[sid] = phe.vis_mode
@@ -93,6 +97,8 @@ class StrainTable:
             "dir_bits": torch.tensor(dir_bits, dtype=torch.int64, device=device),
             "repro_period": torch.tensor(repro_period, dtype=torch.int64, device=device),
             "anta_period": torch.tensor(anta_period, dtype=torch.int64, device=device),
+            "in_place": torch.tensor(in_place_col, dtype=torch.int8, device=device),   # S4
+            "rand_dir": torch.tensor(rand_dir_col, dtype=torch.int8, device=device),   # S4
             "vis_sum": torch.tensor(vis_sum, dtype=torch.float32, device=device),   # S1
             "n_count": torch.tensor(n_count, dtype=torch.int16, device=device),     # S1
             "vis_mode": torch.tensor(vis_mode_l, dtype=torch.int8, device=device),  # S1

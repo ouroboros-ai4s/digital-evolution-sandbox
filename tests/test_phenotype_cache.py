@@ -37,7 +37,8 @@ def test_phenotype_arrays_indexed_by_id():
     assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask",
                                "feature_mask", "period", "dir_bits",
                                "repro_period", "anta_period",
-                               "vis_sum", "n_count", "vis_mode"}
+                               "vis_sum", "n_count", "vis_mode",
+                               "in_place", "rand_dir"}
 
 
 DEV = torch.device("cpu")
@@ -79,7 +80,8 @@ def test_phenotype_arrays_has_dir_and_periods():
     assert set(arr.keys()) == {"f", "p_leave", "z_raw", "p_x", "prey_mask",
                                "feature_mask", "period", "dir_bits",
                                "repro_period", "anta_period",
-                               "vis_sum", "n_count", "vis_mode"}
+                               "vis_sum", "n_count", "vis_mode",
+                               "in_place", "rand_dir"}
     assert arr["dir_bits"].dtype == torch.int64
     assert int(arr["dir_bits"][sid4]) == 0b1111      # all 4 directions
     assert int(arr["dir_bits"][0]) == 0              # EMPTY row
