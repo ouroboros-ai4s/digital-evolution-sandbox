@@ -70,6 +70,27 @@ def _spectrum_for(letter: str) -> tuple[tuple[str, float], ...]:
     return tuple((t, w / tot) for t, w in sorted(weights.items()))
 
 
+def motif_blocks(layout: tuple[str, ...]) -> tuple[tuple[int, int, str], ...]:
+    """Decompose a flat-16 layout into `(start, end, letter)` blocks. Residue
+    letters appear as singletons `(i, i+1, letter)`. Runs of the same
+    `gran=="motif"` letter collapse into one block of length `MOTIF_LEN[letter]`.
+    Pure function of the layout; reads only the registry tables. Default
+    all-residue layouts yield 16 singletons (regression-lock invariant)."""
+    blocks: list[tuple[int, int, str]] = []
+    i = 0
+    n = len(layout)
+    while i < n:
+        letter = layout[i]
+        if GRAN.get(letter) == "motif":
+            length = MOTIF_LEN[letter]
+            blocks.append((i, i + length, letter))
+            i += length
+        else:
+            blocks.append((i, i + 1, letter))
+            i += 1
+    return tuple(blocks)
+
+
 def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     """Pure function of the sequence only. No world-state, no neighbors, no tick.
     κ=0 in v1 — no self-coordination neighbor scan."""
