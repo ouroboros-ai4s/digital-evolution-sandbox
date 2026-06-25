@@ -15,6 +15,17 @@ ALPHABET = {
     "F4Nr1": "F", "F4Nr4": "F",
     "P_base": "P", "P_hotspot": "P",
     "BroadSweep": "Z",
+    # S2: P-pool expansion
+    "P_aic":            "P",
+    "P_ep":             "P",
+    "P_fscan":          "P",
+    "P_zscan":          "P",
+    "P_entropy_brake":  "P",
+    "P_loopswap_lite":  "P",
+    "P_neutral_sink":   "P",
+    "P_slow_drift":     "P",
+    "P_burst_lite":     "P",
+    "P_balanced":       "P",
 }
 
 # Granularity per primitive (S6). residue = single position; motif = N consecutive
@@ -27,6 +38,17 @@ GRAN: dict[str, str] = {
     "P_base":     "residue",
     "P_hotspot":  "residue",
     "BroadSweep": "residue",
+    # S2: P-pool expansion (all residue)
+    "P_aic":            "residue",
+    "P_ep":             "residue",
+    "P_fscan":          "residue",
+    "P_zscan":          "residue",
+    "P_entropy_brake":  "residue",
+    "P_loopswap_lite":  "residue",
+    "P_neutral_sink":   "residue",
+    "P_slow_drift":     "residue",
+    "P_burst_lite":     "residue",
+    "P_balanced":       "residue",
 }
 
 # Span length per motif primitive. residue letters MUST NOT appear here.
@@ -39,12 +61,23 @@ MOTIF_LEN: dict[str, int] = {}
 # emit vis). Module-load asserts the unit-interval bound (spec §5).
 VIS: dict[str, float] = {
     # v1 alphabet (matches ALPHABET above):
-    "N0":         0.20,   # roster N0 — present in default BB0
+    "N0":         0.20,   # roster n0 — present in default BB0
     "F4Nr1":      0.0,
     "F4Nr4":      0.0,
     "P_base":     0.0,
     "P_hotspot":  0.0,
     "BroadSweep": 0.0,
+    # S2: P-pool expansion (all non-N letters carry 0.0)
+    "P_aic":            0.0,
+    "P_ep":             0.0,
+    "P_fscan":          0.0,
+    "P_zscan":          0.0,
+    "P_entropy_brake":  0.0,
+    "P_loopswap_lite":  0.0,
+    "P_neutral_sink":   0.0,
+    "P_slow_drift":     0.0,
+    "P_burst_lite":     0.0,
+    "P_balanced":       0.0,
 }
 for _letter, _v in VIS.items():
     assert 0.0 <= _v <= 1.0, f"VIS[{_letter!r}] = {_v} outside [0,1]"
@@ -105,6 +138,17 @@ _Z = {    # name -> (z, prey_clauses, period, vis_mode)
 _P = {    # name -> (p_add, period); effective rate = min(p_max, μ + p_add)
     "P_base": (0.0, 1),
     "P_hotspot": (_DELTA, 3),
+    # S2: 10 new P primitives (verbatim from primitive-roster §P pool)
+    "P_aic":            (0.03, 3),
+    "P_ep":             (0.04, 3),
+    "P_fscan":          (0.02, 5),
+    "P_zscan":          (0.02, 5),
+    "P_entropy_brake":  (0.01, 7),
+    "P_loopswap_lite":  (0.03, 4),
+    "P_neutral_sink":   (0.02, 5),
+    "P_slow_drift":     (0.0,  9),
+    "P_burst_lite":     (0.07, 2),
+    "P_balanced":       (0.04, 3),
 }
 
 

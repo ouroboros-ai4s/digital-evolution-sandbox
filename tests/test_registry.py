@@ -189,3 +189,52 @@ def test_vis_v1_non_N_letters_are_zero():
     from des.registry import VIS
     for letter in ("F4Nr1", "F4Nr4", "P_base", "P_hotspot", "BroadSweep"):
         assert VIS[letter] == 0.0, f"{letter}: non-N letter must have vis=0.0"
+
+
+# ---------------------------------------------------------------------------
+# S2 Task 1: P pool expansion (10 new P primitives)
+# ---------------------------------------------------------------------------
+
+_S2_NEW_P = (
+    ("P_aic",            0.03, 3),
+    ("P_ep",             0.04, 3),
+    ("P_fscan",          0.02, 5),
+    ("P_zscan",          0.02, 5),
+    ("P_entropy_brake",  0.01, 7),
+    ("P_loopswap_lite",  0.03, 4),
+    ("P_neutral_sink",   0.02, 5),
+    ("P_slow_drift",     0.0,  9),
+    ("P_burst_lite",     0.07, 2),
+    ("P_balanced",       0.04, 3),
+)
+
+
+def test_s2_new_P_letters_present_in_alphabet_with_family_P():
+    """每个新 P 字母在 ALPHABET 里, family 全是 'P'."""
+    from des.registry import ALPHABET
+    for letter, _, _ in _S2_NEW_P:
+        assert letter in ALPHABET, f"{letter}: missing from ALPHABET"
+        assert ALPHABET[letter] == "P", f"{letter}: family must be 'P', got {ALPHABET[letter]!r}"
+
+
+def test_s2_new_P_letters_have_gran_residue():
+    """所有新 P 字母 gran='residue'."""
+    from des.registry import GRAN
+    for letter, _, _ in _S2_NEW_P:
+        assert GRAN.get(letter) == "residue", f"{letter}: gran must be 'residue', got {GRAN.get(letter)!r}"
+
+
+def test_s2_new_P_letters_have_exact_p_add_and_period():
+    """每行 (p_add, period) 与 spec §1 表 verbatim 一致."""
+    from des.registry import _P
+    for letter, p_add, period in _S2_NEW_P:
+        assert letter in _P, f"{letter}: missing from _P"
+        assert _P[letter] == (p_add, period), (
+            f"{letter}: expected (p_add={p_add}, period={period}), got {_P[letter]!r}")
+
+
+def test_s2_existing_P_rows_unchanged():
+    """既有 P_base / P_hotspot 两行 (p_add, period) 不变."""
+    from des.registry import _P
+    assert _P["P_base"] == (0.0, 1)
+    assert _P["P_hotspot"] == (0.05, 3)
