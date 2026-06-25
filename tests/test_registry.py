@@ -118,10 +118,14 @@ def test_dominant_p_picks_higher_padd():
 from des.registry import ALL_DIRECTIONS
 
 def test_dir_bits_match_directions():
-    # F4Nr1 = north only -> exactly the bit for (-1,0)
-    north_bit = 1 << ALL_DIRECTIONS.index((-1, 0))
-    assert phenotype(("F4Nr1",)).dir_bits == north_bit
-    # F4Nr4 = all four -> all four bits
+    """S4 重底定: F4Nr1 现在是 hash-locked 1-of-4 (而非 v1 占位 ((-1,0),)).
+    断言 dir_bits 的 popcount==1, 但**不锁哪个 bit** (由 crc32 决定).
+    F4Nr4 仍是 4 邻全开, 不变."""
+    # F4Nr1: 1 bit set (hash-locked 单方向, 跨 strain 看似随机)
+    db_f4nr1 = phenotype(("F4Nr1",)).dir_bits
+    assert bin(db_f4nr1).count("1") == 1, (
+        f"F4Nr1 must hash-lock to exactly 1 direction, got dir_bits={db_f4nr1:04b}")
+    # F4Nr4 = all four -> all four bits (S4 不动)
     assert phenotype(("F4Nr4",)).dir_bits == (1 << len(ALL_DIRECTIONS)) - 1
     # no F letter -> no directions -> 0
     assert phenotype(("N0",)).dir_bits == 0

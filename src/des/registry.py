@@ -155,7 +155,8 @@ def _hash_dirs(seq: tuple[str, ...], kind: str) -> tuple[tuple[int, int], ...]:
 
 # per-letter raw outputs (design tables; numbers are formula anchors, not calibrated knobs)
 _F = {    # name -> (f, directions, p_leave, period)
-    "F4Nr1": (0.30, ((-1, 0),), 0.05, 4),
+    # S4: F4Nr1 由 v1 占位 ((-1, 0),) 重底定为 hash-locked 1-of-4 (spec §3.3).
+    "F4Nr1": (0.30, "hash:f4nr1", 0.05, 4),
     "F4Nr4": (0.50, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.15, 5),
 }
 _Z = {    # name -> (z, prey_clauses, period, vis_mode)
@@ -383,6 +384,8 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     z_periods: list[int] = []
     phase_type: PhaseType | None = None
     dominant_p: str | None = None
+    in_place = False           # S4: FSTACK 标志
+    rand_dir = False           # S4: FDRIFT 标志
 
     for letter in sequence:
         if letter not in ALPHABET:
@@ -391,12 +394,33 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
             vis_sum += VIS[letter]
             n_count += 1
         if letter in _F:
-            f, dirs, pl, per = _F[letter]
+            f, dirs_spec, pl, per = _F[letter]
             f_prod *= (1 - f)
             pl_prod *= (1 - pl)
-            for d in dirs:
-                if d not in directions:
-                    directions.append(d)
+            # S4: dirs_spec 三态. tuple → 字面方向 (旧路径, OR 进 directions/dir_bits);
+            # "hash:<kind>" → mint 时调 _hash_dirs(sequence, kind) → 同样 OR 进;
+            # "rand:1of4" → 不预写方向, 设 rand_dir=True, kernel 每 tick 现抽.
+            if isinstance(dirs_spec, str):
+                if dirs_spec == "rand:1of4":
+                    rand_dir = True
+                elif dirs_spec.startswith("hash:"):
+                    kind = dirs_spec[len("hash:"):]
+                    for d in _hash_dirs(sequence, kind):
+                        if d not in directions:
+                            directions.append(d)
+                else:
+                    raise ValueError(
+                        f"_F[{letter!r}].directions: unknown spec {dirs_spec!r}; "
+                        "expected tuple, 'hash:<kind>', or 'rand:1of4'")
+            else:
+                # 字面 tuple. (IN_PLACE_DIR,) 即 ((0, 0),) → in_place=True;
+                # 其他字面方向 OR 进 directions 列表 (旧路径).
+                if dirs_spec == (IN_PLACE_DIR,):
+                    in_place = True
+                else:
+                    for d in dirs_spec:
+                        if d not in directions:
+                            directions.append(d)
             periods.append(per)
             f_periods.append(per)
             phase_type = PhaseType.REPRODUCTION
@@ -441,6 +465,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
         repro_period=repro_period, anta_period=anta_period, dir_bits=dir_bits,
         phase_type=phase_type, fold=(),
         vis_sum=vis_sum, n_count=n_count, vis_mode=vis_mode,
+        in_place=in_place, rand_dir=rand_dir,
     )
 
 
