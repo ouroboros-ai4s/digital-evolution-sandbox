@@ -218,3 +218,22 @@ def test_f4nr4_byte_identical_after_s4():
     eng_b.run(3, recorder=None, stop_on=())
     assert torch.equal(eng_a.world.count, eng_b.world.count)
 
+
+def test_f4nr1_offspring_lands_at_hash_locked_neighbor():
+    """F4Nr1 re-baselined: offspring land at crc32-determined neighbor, not north-only."""
+    import torch
+    from des.engine import Engine
+    from des.registry import phenotype
+    # popcount==1: exactly one direction
+    assert bin(phenotype(("F4Nr1",) + ("N0",) * 15).dir_bits).count("1") == 1
+    # same-seed reproducibility — BB0-valid: locked pos {1:F4Nr4, 5:BroadSweep, 7:P_base},
+    # F4Nr1 at mutable slot 0.
+    layout = ("F4Nr1", "F4Nr4", "N0", "N0", "N0", "BroadSweep", "N0", "P_base") + ("N0",) * 8
+    eng_a = Engine(H=4, W=4, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2, layouts=(layout,) * 4)
+    eng_b = Engine(H=4, W=4, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2, layouts=(layout,) * 4)
+    eng_a.run(1, recorder=None, stop_on=())
+    eng_b.run(1, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+
