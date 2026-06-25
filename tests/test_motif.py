@@ -249,3 +249,31 @@ def test_n_locked_excludes_block_partially_outside_locked_set(monkeypatch):
     assert registry.n_locked(layout, "F") == 0
     assert registry.n_locked(layout, "Z") == 1
     assert registry.n_locked(layout, "P") == 1
+
+
+def test_predicate_bits_present_and_distinct():
+    """11 S6 predicates + 4 reserved (S1/S3) = 15 names; bit indices distinct."""
+    from des.registry import PREDICATE_BITS
+    expected_names = {
+        "family_N", "family_F", "family_P", "family_Z",
+        "motif_F", "motif_P", "motif_Z", "motif_N",
+        "motif3_F", "motif3_P", "motif3_Z",
+        "vis_lowvis", "thr_crest", "thr_hotspot", "thr_mirror",
+    }
+    assert set(PREDICATE_BITS.keys()) == expected_names
+    indices = list(PREDICATE_BITS.values())
+    assert len(indices) == len(set(indices)), "duplicate bit indices"
+    for idx in indices:
+        assert 0 <= idx < 63
+
+
+def test_predicate_bit_is_shift_of_predicate_bits():
+    from des.registry import PREDICATE_BITS, PREDICATE_BIT
+    for name, idx in PREDICATE_BITS.items():
+        assert PREDICATE_BIT[name] == 1 << idx
+
+
+def test_predicate_vocabulary_fits_int64():
+    """Module-level assertion: highest bit must fit signed int64."""
+    from des.registry import PREDICATE_BITS
+    assert max(PREDICATE_BITS.values()) < 63

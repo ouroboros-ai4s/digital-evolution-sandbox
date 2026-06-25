@@ -33,6 +33,36 @@ GRAN: dict[str, str] = {
 # v1: empty (no motif primitives — each later spec adds its own rows).
 MOTIF_LEN: dict[str, int] = {}
 
+# Predicate-bit vocabulary (S6 §3.5). Each bit = a structural predicate, not a
+# letter. Stable indices: S1/S3 will populate the reserved names without
+# renumbering. Total 15 of the 63 available signed-int64 bits.
+PREDICATE_BITS: dict[str, int] = {
+    # family-of-letter (4 bits): set per-letter at mint.
+    "family_N":     0,
+    "family_F":     1,
+    "family_P":     2,
+    "family_Z":     3,
+    # sequence has at least one motif block of family fam (4 bits): set per-strain at mint.
+    "motif_F":      4,
+    "motif_P":      5,
+    "motif_Z":      6,
+    "motif_N":      7,
+    # sequence has at least one motif block of family fam with MOTIF_LEN >= 3 (3 bits).
+    "motif3_F":     8,
+    "motif3_P":     9,
+    "motif3_Z":    10,
+    # Reserved (S1 / S3 fill the values; bit indices stable so adding the values
+    # later is a bit-set, not a renumbering).
+    "vis_lowvis":  11,   # gran=='residue' AND vis<=0.20    (S1 fills vis bit, S3 wires)
+    "thr_crest":   12,   # family=='F' AND f>=0.5            (S3)
+    "thr_hotspot": 13,   # family=='P' AND p_add>=0.05       (S3)
+    "thr_mirror":  14,   # family=='Z' AND z<=0.45 AND |prey|>=2  (S3)
+}
+assert max(PREDICATE_BITS.values()) < 63, \
+    "predicate vocabulary overflows int64; halt before phenotype() is built"
+
+PREDICATE_BIT: dict[str, int] = {name: 1 << idx for name, idx in PREDICATE_BITS.items()}
+
 FEATURE_BIT = {name: 1 << i for i, name in enumerate(sorted(ALPHABET))}
 
 # v1 direction universe: every strain's directions are a subset of these.
