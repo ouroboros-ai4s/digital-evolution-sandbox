@@ -67,6 +67,10 @@ class StrainTable:
         vis_sum = [0.0] * n      # S1: Σ_{i: fam=N} VIS[seq[i]]
         n_count = [0] * n        # S1: #{i: fam=N}
         vis_mode_l = [0] * n     # S1: 0=none, 1=vis-weighted, 2=inverse-vis-weighted
+        f_hi_col = [0.0] * n     # S5: stacked on-window f
+        f_lo_col = [0.0] * n     # S5: stacked off-window f
+        burst_w_col = [1] * n    # S5: window period (M1: modulo-by-zero guard)
+        burst_k_col = [1] * n    # S5: on-window length
         for sid in range(1, n):
             phe = self._id_to_phe[sid]
             if phe is None:
@@ -86,6 +90,10 @@ class StrainTable:
             vis_sum[sid] = phe.vis_sum
             n_count[sid] = phe.n_count
             vis_mode_l[sid] = phe.vis_mode
+            f_hi_col[sid] = phe.f_hi
+            f_lo_col[sid] = phe.f_lo
+            burst_w_col[sid] = phe.burst_w
+            burst_k_col[sid] = phe.burst_k
         result = {
             "f": torch.tensor(f, dtype=torch.float32, device=device),
             "p_leave": torch.tensor(p_leave, dtype=torch.float32, device=device),
@@ -102,6 +110,10 @@ class StrainTable:
             "vis_sum": torch.tensor(vis_sum, dtype=torch.float32, device=device),   # S1
             "n_count": torch.tensor(n_count, dtype=torch.int16, device=device),     # S1
             "vis_mode": torch.tensor(vis_mode_l, dtype=torch.int8, device=device),  # S1
+            "f_hi": torch.tensor(f_hi_col, dtype=torch.float32, device=device),     # S5
+            "f_lo": torch.tensor(f_lo_col, dtype=torch.float32, device=device),     # S5
+            "burst_w": torch.tensor(burst_w_col, dtype=torch.int64, device=device), # S5
+            "burst_k": torch.tensor(burst_k_col, dtype=torch.int64, device=device), # S5
         }
         # store cache and clear dirty flag
         self._cached_arrays = result
