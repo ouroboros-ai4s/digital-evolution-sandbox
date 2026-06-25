@@ -1,6 +1,7 @@
 import pytest
 import torch
-from webapp.server import PALETTE, layout_from_slots, build_engine_from_config, _jsonable
+from des.run import PALETTE, layout_from_slots, build_engine_from_config
+from webapp.server import _jsonable
 from des.registry import BB0_TEMPLATE, _SLOTS, _LOCKED
 
 DEV = torch.device("cpu")
