@@ -27,6 +27,12 @@ ALPHABET = {
     "P_slow_drift":     "P",
     "P_burst_lite":     "P",
     "P_balanced":       "P",
+    # S4: F-pool dynamic-direction primitives (spec §3.4)
+    "FSTACK":  "F",
+    "FCLUMP":  "F",
+    "FFRONT":  "F",
+    "F4Nr3":   "F",
+    "FDRIFT":  "F",
 }
 
 # Granularity per primitive (S6). residue = single position; motif = N consecutive
@@ -50,11 +56,21 @@ GRAN: dict[str, str] = {
     "P_slow_drift":     "residue",
     "P_burst_lite":     "residue",
     "P_balanced":       "residue",
+    # S4: F-pool dynamic directions
+    "FSTACK":  "residue",
+    "FCLUMP":  "motif",
+    "FFRONT":  "motif",
+    "F4Nr3":   "residue",
+    "FDRIFT":  "residue",
 }
 
 # Span length per motif primitive. residue letters MUST NOT appear here.
 # v1: empty (no motif primitives — each later spec adds its own rows).
-MOTIF_LEN: dict[str, int] = {}
+MOTIF_LEN: dict[str, int] = {
+    # S4: motif F primitives (spec §3.4)
+    "FCLUMP": 2,
+    "FFRONT": 2,
+}
 
 # Per-primitive vis (S1). Pure registry value, never per-species. The N pool
 # carries vis ∈ [0,1] from the roster (primitive-roster.md N pool); non-N
@@ -79,6 +95,12 @@ VIS: dict[str, float] = {
     "P_slow_drift":     0.0,
     "P_burst_lite":     0.0,
     "P_balanced":       0.0,
+    # S4: F-pool dynamic-direction primitives (all non-N letters carry 0.0)
+    "FSTACK":  0.0,
+    "FCLUMP":  0.0,
+    "FFRONT":  0.0,
+    "F4Nr3":   0.0,
+    "FDRIFT":  0.0,
 }
 for _letter, _v in VIS.items():
     assert 0.0 <= _v <= 1.0, f"VIS[{_letter!r}] = {_v} outside [0,1]"
@@ -158,6 +180,12 @@ _F = {    # name -> (f, directions, p_leave, period)
     # S4: F4Nr1 由 v1 占位 ((-1, 0),) 重底定为 hash-locked 1-of-4 (spec §3.3).
     "F4Nr1": (0.30, "hash:f4nr1", 0.05, 4),
     "F4Nr4": (0.50, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.15, 5),
+    # S4: 5 new F primitives (spec §3.4 verbatim)
+    "FSTACK":  (0.60, (IN_PLACE_DIR,), 0.00, 3),
+    "FCLUMP":  (0.45, "hash:fclump",   0.10, 6),
+    "FFRONT":  (0.50, "hash:ffront",   0.25, 4),
+    "F4Nr3":   (0.40, "hash:f4nr3",    0.12, 5),
+    "FDRIFT":  (0.15, "rand:1of4",     0.30, 2),
 }
 _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # prey_clauses: tuple of clause-tuples. Each clause selects ONE predicate

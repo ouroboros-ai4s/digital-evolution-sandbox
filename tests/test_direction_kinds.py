@@ -158,3 +158,67 @@ def test_phenotype_arrays_default_bb0_all_zero_for_in_place_and_rand_dir():
     phe = eng.table.phenotype_arrays(torch.device("cpu"))
     assert int(phe["in_place"].max().item()) == 0
     assert int(phe["rand_dir"].max().item()) == 0
+
+
+def test_s4_new_F_letters_present_in_alphabet_with_family_F():
+    """5 个新 F 字母 family 全 'F'."""
+    from des.registry import ALPHABET
+    for letter in ("FSTACK", "FCLUMP", "FFRONT", "F4Nr3", "FDRIFT"):
+        assert ALPHABET.get(letter) == "F", f"{letter}: {ALPHABET.get(letter)!r}"
+
+
+def test_s4_new_F_letters_have_correct_gran():
+    """FSTACK / F4Nr3 / FDRIFT = residue; FCLUMP / FFRONT = motif (spec §3.4)."""
+    from des.registry import GRAN
+    assert GRAN["FSTACK"] == "residue"
+    assert GRAN["F4Nr3"] == "residue"
+    assert GRAN["FDRIFT"] == "residue"
+    assert GRAN["FCLUMP"] == "motif"
+    assert GRAN["FFRONT"] == "motif"
+
+
+def test_s4_motif_F_letters_have_motif_len_2():
+    """FCLUMP / FFRONT 是长度 2 的 motif (spec §3.4)."""
+    from des.registry import MOTIF_LEN
+    assert MOTIF_LEN["FCLUMP"] == 2
+    assert MOTIF_LEN["FFRONT"] == 2
+
+
+def test_s4_new_F_rows_have_exact_values():
+    """每行 (f, directions, p_leave, period) 与 spec §3.4 表 verbatim 一致."""
+    from des.registry import _F, IN_PLACE_DIR
+    assert _F["FSTACK"] == (0.60, (IN_PLACE_DIR,), 0.00, 3)
+    assert _F["FCLUMP"] == (0.45, "hash:fclump",   0.10, 6)
+    assert _F["FFRONT"] == (0.50, "hash:ffront",   0.25, 4)
+    assert _F["F4Nr3"]  == (0.40, "hash:f4nr3",    0.12, 5)
+    assert _F["FDRIFT"] == (0.15, "rand:1of4",     0.30, 2)
+
+
+def test_phenotype_fstack_strain_has_in_place_true():
+    from des.registry import phenotype
+    p = phenotype(("FSTACK", "F4Nr4", "P_base", "BroadSweep") + ("N0",) * 12)
+    assert p.in_place is True
+    assert p.rand_dir is False
+
+
+def test_phenotype_fdrift_strain_has_rand_dir_true():
+    from des.registry import phenotype
+    p = phenotype(("FDRIFT", "F4Nr4", "P_base", "BroadSweep") + ("N0",) * 12)
+    assert p.rand_dir is True
+    assert p.in_place is False
+
+
+def test_phenotype_fclump_strain_has_two_dir_bits():
+    """FCLUMP hash-locked 一根轴 (2 个 bit). 仍 motif=2 只能成对出现."""
+    from des.registry import phenotype
+    p = phenotype(("FCLUMP", "FCLUMP") + ("N0",) * 14)
+    assert bin(p.dir_bits).count("1") == 2
+    assert p.in_place is False
+    assert p.rand_dir is False
+
+
+def test_phenotype_f4nr3_strain_has_three_dir_bits():
+    """F4Nr3 hash-locked 三邻 (3 个 bit)."""
+    from des.registry import phenotype
+    p = phenotype(("F4Nr3",) + ("N0",) * 15)
+    assert bin(p.dir_bits).count("1") == 3

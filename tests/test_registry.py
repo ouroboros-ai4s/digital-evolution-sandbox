@@ -156,11 +156,17 @@ def test_gran_covers_every_alphabet_letter():
 
 
 def test_v1_alphabet_is_all_residue_motif_len_empty():
-    """v1 has no motif primitives yet — every letter is residue, MOTIF_LEN is empty."""
+    """S4 adds motif primitives FCLUMP / FFRONT — this test is updated to reflect
+    that only non-motif letters are residue, and MOTIF_LEN covers exactly the
+    motif letters in GRAN."""
     from des.registry import GRAN, MOTIF_LEN
-    for letter, gran in GRAN.items():
-        assert gran == "residue", f"{letter}: v1 must be residue, got {gran!r}"
-    assert MOTIF_LEN == {}, f"v1 has no motif primitives, got MOTIF_LEN={MOTIF_LEN!r}"
+    motif_letters = {l for l, g in GRAN.items() if g == "motif"}
+    residue_letters = {l for l, g in GRAN.items() if g == "residue"}
+    # Every motif letter must appear in MOTIF_LEN; residue letters must NOT.
+    for letter in motif_letters:
+        assert letter in MOTIF_LEN, f"{letter}: motif letter missing from MOTIF_LEN"
+    for letter in residue_letters:
+        assert letter not in MOTIF_LEN, f"{letter}: residue letter must not be in MOTIF_LEN"
 
 
 # ---------------------------------------------------------------------------

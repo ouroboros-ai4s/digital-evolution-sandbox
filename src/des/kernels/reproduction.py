@@ -79,6 +79,8 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
     p_x = phe["p_x"][sid_long]
     repro_period = phe["repro_period"][sid_long]
     dir_bits = phe["dir_bits"][sid_long]
+    in_place_mask = phe["in_place"][sid_long].bool()      # [H,W,K]
+    rand_dir_mask = phe["rand_dir"][sid_long].bool()      # [H,W,K]
 
     alive = snap_count > 0
     fires = fires_this_tick(birth_tick, repro_period, T) & alive & (f > 0)
@@ -93,11 +95,12 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
 
     faction_long = snap_faction.to(torch.int8)
 
-    # --- pass 1: per direction, compute non-mutant + mutant offspring, roll into place ---
+    # --- pass 1: 静态 dir_bits 路径 (排除 in_place / rand_dir slot) ---
+    static_mask = (~in_place_mask) & (~rand_dir_mask)
     rolled = []                 # list of (rolled_non, rolled_mut, rolled_sid, rolled_fac)
     for (dy, dx) in ALL_DIRECTIONS:
         bit = ALL_DIRECTIONS.index((dy, dx))
-        dir_mask = ((dir_bits >> bit) & 1).bool()        # slots that move this direction
+        dir_mask = ((dir_bits >> bit) & 1).bool() & static_mask
         active = fires & dir_mask
         a = (snap_count * active).to(torch.int32)        # [H,W,K] firing counts
         scattered = binom(a, f, generator)               # offspring per source slot
@@ -109,6 +112,35 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
         r_sid = torch.roll(snap_sid, shifts=(dy, dx), dims=(0, 1))
         r_fac = torch.roll(faction_long, shifts=(dy, dx), dims=(0, 1))
         rolled.append((r_non, r_mut, r_sid, r_fac))
+
+    # --- S4: in-place path (FSTACK) — deposit in source cell, no roll ---
+    in_place_active = fires & in_place_mask
+    if in_place_active.any():
+        a_ip = (snap_count * in_place_active).to(torch.int32)
+        scattered_ip = binom(a_ip, f, generator)
+        mut_ip = binom(scattered_ip, p_x, generator)
+        non_ip = scattered_ip - mut_ip
+        rolled.append((non_ip, mut_ip, snap_sid, faction_long))
+
+    # --- S4: rand-dir path (FDRIFT) — draw 1-of-4 per firing slot from world RNG ---
+    rand_active = fires & rand_dir_mask
+    if rand_active.any():
+        a_rd = (snap_count * rand_active).to(torch.int32)
+        scattered_rd = binom(a_rd, f, generator)
+        mut_rd = binom(scattered_rd, p_x, generator)
+        non_rd = scattered_rd - mut_rd
+        dir_idx = torch.randint(0, 4, (H, W, K), generator=generator,
+                                device=dev, dtype=torch.int64)
+        for d in range(4):
+            dy, dx = ALL_DIRECTIONS[d]
+            sel = (dir_idx == d) & rand_active
+            non_d = (non_rd * sel).to(non_rd.dtype)
+            mut_d = (mut_rd * sel).to(mut_rd.dtype)
+            r_non = torch.roll(non_d, shifts=(dy, dx), dims=(0, 1))
+            r_mut = torch.roll(mut_d, shifts=(dy, dx), dims=(0, 1))
+            r_sid = torch.roll(snap_sid, shifts=(dy, dx), dims=(0, 1))
+            r_fac = torch.roll(faction_long, shifts=(dy, dx), dims=(0, 1))
+            rolled.append((r_non, r_mut, r_sid, r_fac))
 
     # --- pass 2a: emit non-mutant offspring (keep parent sid; faction unchanged) ---
     fy = ty.flatten(); fx = tx.flatten()
