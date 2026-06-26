@@ -1,4 +1,4 @@
-# digital-evolution-sandbox
+# Digital Evolution Sandbox
 
 🚧 Work in progress
 
