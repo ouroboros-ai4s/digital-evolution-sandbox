@@ -302,16 +302,75 @@ def test_s7_slots_per_event_covers_every_alphabet_letter():
     from des.registry import SLOTS_PER_EVENT, ALPHABET
     assert set(SLOTS_PER_EVENT.keys()) == set(ALPHABET.keys())
     for letter, n in SLOTS_PER_EVENT.items():
-        assert n == 1, f"{letter}: pre-S8 active letter must have slots_per_event=1"
+        if letter == "P_cascade":
+            assert n == 2, f"P_cascade must have slots_per_event=2 (S8)"
+        else:
+            assert n == 1, f"{letter}: non-P_cascade letter must have slots_per_event=1"
 
 
 # ---------------------------------------------------------------------------
-# S8 Task 1: A pool data module
+# S8 Task 2: A-pool rows merged into registry tables
 # ---------------------------------------------------------------------------
 
-def test_s8_a_pool_keys_subset_of_registry_tables():
-    """A_FAMILY keys not yet in registry tables (Task 1 is data-only; Task 2 merges)."""
+def test_s8_a_pool_all_24_letters_in_alphabet():
+    """All 24 A-pool letters merged into ALPHABET with correct family values."""
+    from des.registry import ALPHABET
     from des._a_pool import A_FAMILY
-    # This test will FAIL after Task 2 merges — that's expected. Task 2 owns this.
-    # For Task 1, we only verify the module loads and exposes the right key count.
-    assert len(A_FAMILY) == 24
+    for letter, fam in A_FAMILY.items():
+        assert letter in ALPHABET, f"{letter!r} missing from ALPHABET"
+        assert ALPHABET[letter] == fam, (
+            f"{letter!r}: ALPHABET={ALPHABET[letter]!r}, expected {fam!r}")
+
+
+def test_s8_a_pool_gran_and_motif_len_merged():
+    """GRAN and MOTIF_LEN updated for all 24 A letters."""
+    from des.registry import GRAN, MOTIF_LEN
+    from des._a_pool import A_GRAN, A_MOTIF_LEN
+    for letter, gran in A_GRAN.items():
+        assert GRAN.get(letter) == gran, f"{letter}: GRAN mismatch"
+    for letter, ml in A_MOTIF_LEN.items():
+        assert MOTIF_LEN.get(letter) == ml, f"{letter}: MOTIF_LEN mismatch"
+
+
+def test_s8_a_pool_f_z_p_tables_updated():
+    """_F, _Z, _P extended with all A-pool rows."""
+    from des.registry import _F, _Z, _P
+    from des._a_pool import A_F, A_Z, A_P
+    for letter in A_F:
+        assert letter in _F, f"{letter!r} missing from _F"
+    for letter in A_Z:
+        assert letter in _Z, f"{letter!r} missing from _Z"
+    for letter in A_P:
+        assert letter in _P, f"{letter!r} missing from _P"
+
+
+def test_s8_p_cascade_slots_per_event_is_2():
+    """P_cascade is the only letter with SLOTS_PER_EVENT=2 after S8 merge."""
+    from des.registry import SLOTS_PER_EVENT
+    assert SLOTS_PER_EVENT["P_cascade"] == 2
+    # Spot-check a few others stay 1
+    assert SLOTS_PER_EVENT["P_stutter"] == 1
+    assert SLOTS_PER_EVENT["Apex Bloom"] == 1
+
+
+def test_s8_slots_per_event_covers_all_alphabet_letters():
+    """SLOTS_PER_EVENT key-set == ALPHABET key-set after A merge."""
+    from des.registry import SLOTS_PER_EVENT, ALPHABET
+    assert set(SLOTS_PER_EVENT.keys()) == set(ALPHABET.keys()), (
+        f"missing={set(ALPHABET.keys()) - set(SLOTS_PER_EVENT.keys())}, "
+        f"extra={set(SLOTS_PER_EVENT.keys()) - set(ALPHABET.keys())}")
+
+
+def test_s8_a_pool_extreme_value_bounds_assert_at_module_load():
+    """A-pool extreme values are within spec bounds (module loads without AssertionError)."""
+    from des.registry import _F, _Z, _P
+    from des._a_pool import A_FAMILY
+    a_f = {k for k, v in A_FAMILY.items() if v == "F"}
+    a_z = {k for k, v in A_FAMILY.items() if v == "Z"}
+    a_p = {k for k, v in A_FAMILY.items() if v == "P"}
+    for letter in a_f:
+        assert _F[letter][0] <= 0.85, f"{letter}: f={_F[letter][0]} exceeds 0.85"
+    for letter in a_z:
+        assert _Z[letter][0] <= 1.50, f"{letter}: z={_Z[letter][0]} exceeds 1.50"
+    for letter in a_p:
+        assert _P[letter][0] <= 0.34, f"{letter}: p_add={_P[letter][0]} exceeds 0.34"

@@ -69,18 +69,19 @@ A_F: dict[str, tuple] = {
 }
 
 # A_Z: 8 Z-class rows, S1 4-tuple (z, prey_clauses, period, vis_mode)
+# vis_mode integers: 0=none/uniform, 1=vis-weighted, 2=inverse-vis-weighted
 A_Z: dict[str, tuple] = {
     # 乙1
-    "Apex Fang":     (1.50, (("Z", "generalist"),),          9, "uniform"),
-    "Pan Sweep":     (0.50, (("F",), ("Z",), ("P",)),        6, "uniform"),
+    "Apex Fang":     (1.50, (("Z", "generalist"),),          9, 0),
+    "Pan Sweep":     (0.50, (("F",), ("Z",), ("P",)),        6, 0),
     # 乙2
-    "Predator Lock": (1.45, (("Z", "motif", "len>=3"),),     9, "uniform"),
-    "Void Bite":     (0.95, (("N", "lowvis"),),              5, "vis_weighted"),
+    "Predator Lock": (1.45, (("Z", "motif", "len>=3"),),     9, 0),
+    "Void Bite":     (0.95, (("N", "lowvis"),),              5, 1),
     # 甲
-    "Ambush Venom":  (1.30, (("F", "motif"),),               7, "uniform"),
-    "Sweep Surge":   (0.45, (("F",), ("P",)),                3, "uniform"),
-    "Nip Whisper":   (0.15, (("N", "lowvis"),),              3, "vis_weighted"),
-    "Coil Null":     (0.20, (("Z",),),                       8, "uniform"),
+    "Ambush Venom":  (1.30, (("F", "motif"),),               7, 0),
+    "Sweep Surge":   (0.45, (("F",), ("P",)),                3, 0),
+    "Nip Whisper":   (0.15, (("N", "lowvis"),),              3, 1),
+    "Coil Null":     (0.20, (("Z",),),                       8, 0),
 }
 
 # A_P: 8 P-class rows, 2-tuple (p_add, period)

@@ -22,11 +22,13 @@ def test_slots_per_event_covers_every_alphabet_letter():
 
 
 def test_slots_per_event_v1_all_one():
-    """S7 落地时 (S0..S6 都已绿), 全部 active letter slots_per_event=1
-    (spec §2 红线 3: P_cascade 是唯一 slots=2 的 roster 行, S8 才铸)."""
+    """S8 landed: P_cascade=2, all other active letters slots_per_event=1."""
     from des.registry import SLOTS_PER_EVENT
     for letter, n in SLOTS_PER_EVENT.items():
-        assert n == 1, f"{letter}: expected slots_per_event=1 in S7, got {n!r}"
+        if letter == "P_cascade":
+            assert n == 2, f"P_cascade: expected slots_per_event=2 (S8), got {n!r}"
+        else:
+            assert n == 1, f"{letter}: expected slots_per_event=1, got {n!r}"
 
 
 def test_slots_per_event_value_in_legal_domain():

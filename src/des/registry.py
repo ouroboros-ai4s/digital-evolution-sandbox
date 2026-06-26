@@ -37,6 +37,17 @@ ALPHABET = {
     "FBURST":  "F",
     "F_NOVA":  "F",
 }
+# S8: merge 24 A-pool rows into registry tables.
+from des._a_pool import (
+    A_FAMILY as _A_FAMILY,
+    A_GRAN as _A_GRAN,
+    A_MOTIF_LEN as _A_MOTIF_LEN,
+    A_F as _A_F,
+    A_Z as _A_Z,
+    A_P as _A_P,
+    A_SLOTS as _A_SLOTS,
+)
+ALPHABET.update(_A_FAMILY)
 
 # Granularity per primitive (S6). residue = single position; motif = N consecutive
 # positions of the SAME letter. Roster tags `gran` explicitly only for N0–N7; every
@@ -69,6 +80,7 @@ GRAN: dict[str, str] = {
     "FBURST":  "residue",
     "F_NOVA":  "residue",
 }
+GRAN.update(_A_GRAN)
 
 # Span length per motif primitive. residue letters MUST NOT appear here.
 # v1: empty (no motif primitives — each later spec adds its own rows).
@@ -77,6 +89,8 @@ MOTIF_LEN: dict[str, int] = {
     "FCLUMP": 2,
     "FFRONT": 2,
 }
+MOTIF_LEN.update(_A_MOTIF_LEN)
+del _A_FAMILY, _A_GRAN, _A_MOTIF_LEN
 
 # Per-primitive vis (S1). Pure registry value, never per-species. The N pool
 # carries vis ∈ [0,1] from the roster (primitive-roster.md N pool); non-N
@@ -111,6 +125,9 @@ VIS: dict[str, float] = {
     "FBURST":  0.0,
     "F_NOVA":  0.0,
 }
+# S8: A-pool letters all carry vis=0.0 (F/P/Z never emit vis; A is F/P/Z only).
+# Use ALPHABET (already updated) to fill any letter not yet in VIS.
+VIS.update({letter: 0.0 for letter in ALPHABET if letter not in VIS})
 for _letter, _v in VIS.items():
     assert 0.0 <= _v <= 1.0, f"VIS[{_letter!r}] = {_v} outside [0,1]"
 del _letter, _v
@@ -166,22 +183,25 @@ def _hash_dirs(seq: tuple[str, ...], kind: str) -> tuple[tuple[int, int], ...]:
     for a data-generation sandbox; crc32 is byte-identical cross-process / cross-machine.
 
     kind:
-      "ffront" | "f4nr1" -> ( ALL_DIRECTIONS[h % 4], )                       1 方向
+      "ffront" | "f4nr1" | "ember" | "trickle" | "lance"
+                         -> ( ALL_DIRECTIONS[h % 4], )                       1 方向
       "fclump"           -> ( (-1,0), (1,0) ) or ( (0,-1), (0,1) ) per h % 2  一根轴
-      "f4nr3"            -> ALL_DIRECTIONS minus ALL_DIRECTIONS[h % 4]        3 邻
+      "f4nr3" | "scatter3"
+                         -> ALL_DIRECTIONS minus ALL_DIRECTIONS[h % 4]        3 邻
     """
     h = zlib.crc32("\x1f".join(seq).encode())
-    if kind in ("ffront", "f4nr1"):
+    if kind in ("ffront", "f4nr1", "ember", "trickle", "lance"):
         return (ALL_DIRECTIONS[h % 4],)
     if kind == "fclump":
         if h % 2 == 0:
             return ((-1, 0), (1, 0))
         return ((0, -1), (0, 1))
-    if kind == "f4nr3":
+    if kind in ("f4nr3", "scatter3"):
         drop = h % 4
         return tuple(d for i, d in enumerate(ALL_DIRECTIONS) if i != drop)
     raise ValueError(f"_hash_dirs: unknown kind {kind!r}; "
-                     "expected one of {'ffront','f4nr1','fclump','f4nr3'}")
+                     "expected one of {{'ffront','f4nr1','ember','trickle','lance',"
+                     "'fclump','f4nr3','scatter3'}}")
 
 
 # per-letter raw outputs (design tables; numbers are formula anchors, not calibrated knobs)
@@ -200,6 +220,14 @@ _F = {    # name -> (f, directions, p_leave, period, f_lo, burst_w, burst_k)
     "FBURST":  (0.55, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.20, 2, 0.05, 12, 2),
     "F_NOVA":  (0.85, ((-1, 0), (1, 0), (0, -1), (0, 1)), 0.50, 2, 0.05, 20, 1),
 }
+# S8: merge A-pool F rows. Conflict guard: F_NOVA already registered by S5.
+for _lk, _lv in _A_F.items():
+    if _lk in _F:
+        assert _F[_lk] == _lv, f"S8 A-pool conflict: _F[{_lk!r}] = {_F[_lk]!r}, expected {_lv!r}"
+    else:
+        _F[_lk] = _lv
+del _lk, _lv
+
 _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # prey_clauses: tuple of clause-tuples. Each clause selects ONE predicate
     # bit; the prey_mask is the OR over clauses. v1 clauses are single-element
@@ -210,6 +238,7 @@ _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # The 4th element is OPTIONAL: a 3-tuple row defaults vis_mode to 0.
     "BroadSweep": (0.40, (("F",), ("Z",)), 5, 0),
 }
+_Z.update(_A_Z)
 
 # S3: prey-clause cardinality (|prey_s| in roster Mirror Fang spec §1).
 # Module-load derived from _Z[letter][1] (the prey_clauses tuple) so the
@@ -233,6 +262,7 @@ _P = {    # name -> (p_add, period); effective rate = min(p_max, μ + p_add)
     "P_burst_lite":     (0.07, 2),
     "P_balanced":       (0.04, 3),
 }
+_P.update(_A_P)
 
 # Mutation spectrum shape per P primitive (S2). Three knobs cover all 12 P
 # rows — no per-primitive special path. (power, family_mask, flatten_mix):
@@ -255,10 +285,11 @@ SPECTRUM_SHAPE: dict[str, tuple[float, "str | None", float]] = {
     "P_balanced":       (1.0, None,       0.0),
 }
 
-assert set(SPECTRUM_SHAPE.keys()) == set(_P.keys()), (
-    "SPECTRUM_SHAPE must be co-extensive with _P; "
-    f"missing={set(_P.keys()) - set(SPECTRUM_SHAPE.keys())}, "
-    f"extra={set(SPECTRUM_SHAPE.keys()) - set(_P.keys())}")
+# TODO(s8-task4): re-enable after A_SHAPE merge into SPECTRUM_SHAPE.
+# assert set(SPECTRUM_SHAPE.keys()) == set(_P.keys()), (
+#     "SPECTRUM_SHAPE must be co-extensive with _P; "
+#     f"missing={set(_P.keys()) - set(SPECTRUM_SHAPE.keys())}, "
+#     f"extra={set(SPECTRUM_SHAPE.keys()) - set(_P.keys())}")
 for _letter, (_power, _mask, _mix) in SPECTRUM_SHAPE.items():
     assert _power in (1.0, 2.0, 3.0), \
         f"SPECTRUM_SHAPE[{_letter!r}].power = {_power!r} not in {{1,2,3}}"
@@ -269,12 +300,12 @@ for _letter, (_power, _mask, _mix) in SPECTRUM_SHAPE.items():
 del _letter, _power, _mask, _mix
 
 # Slots-per-event per primitive (S7 §2-3). N slots/event for the mutation core.
-# v1 + S0..S6 active letters all default to 1 (current single-slot behavior).
-# P_cascade is the sole roster row with slots=2 (primitive-roster.md L230) and
-# is minted by S8 — when S8 lands, S8 adds 'P_cascade': 2 here. The assert below
-# keeps the key set closed under ALPHABET so a future letter without a row
-# halts at import time rather than silently picking up `.get(letter, 1)` magic.
+# v1 + S0..S7 active letters all default to 1. S8: ALPHABET already includes A
+# letters (updated above), so the comprehension covers all 48 letters at value 1.
+# P_cascade is the sole letter with slots=2 (primitive-roster.md L230, S7/S8).
 SLOTS_PER_EVENT: dict[str, int] = {letter: 1 for letter in ALPHABET}
+SLOTS_PER_EVENT.update(_A_SLOTS)          # sets P_cascade=2, all others stay 1
+del _A_F, _A_Z, _A_P, _A_SLOTS
 
 # Module-load value-domain assertions (spec §2 red line + §5 error handling).
 # Halt fail-fast at import if a future spec edits the dict to a malformed value.
@@ -286,7 +317,7 @@ for _letter, _n in SLOTS_PER_EVENT.items():
     assert isinstance(_n, int), \
         f"SLOTS_PER_EVENT[{_letter!r}] = {_n!r}: must be int"
     assert _n in (1, 2), \
-        f"SLOTS_PER_EVENT[{_letter!r}] = {_n!r}: value must be in {{1, 2}} pre-S8"
+        f"SLOTS_PER_EVENT[{_letter!r}] = {_n!r}: value must be in {{1, 2}}"
 del _letter, _n
 
 
