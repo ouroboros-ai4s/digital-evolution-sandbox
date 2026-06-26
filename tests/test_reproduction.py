@@ -1,4 +1,4 @@
-﻿# tests/test_reproduction.py
+# tests/test_reproduction.py
 import pytest
 import torch
 from des.world import World, init_bb0

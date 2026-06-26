@@ -1,4 +1,4 @@
-﻿# tests/test_phase_windows.py
+# tests/test_phase_windows.py
 """S5 phase-window f primitives + kernel where-on-window branch."""
 from __future__ import annotations
 import pytest
