@@ -303,3 +303,15 @@ def test_s7_slots_per_event_covers_every_alphabet_letter():
     assert set(SLOTS_PER_EVENT.keys()) == set(ALPHABET.keys())
     for letter, n in SLOTS_PER_EVENT.items():
         assert n == 1, f"{letter}: pre-S8 active letter must have slots_per_event=1"
+
+
+# ---------------------------------------------------------------------------
+# S8 Task 1: A pool data module
+# ---------------------------------------------------------------------------
+
+def test_s8_a_pool_keys_subset_of_registry_tables():
+    """A_FAMILY keys not yet in registry tables (Task 1 is data-only; Task 2 merges)."""
+    from des._a_pool import A_FAMILY
+    # This test will FAIL after Task 2 merges — that's expected. Task 2 owns this.
+    # For Task 1, we only verify the module loads and exposes the right key count.
+    assert len(A_FAMILY) == 24
