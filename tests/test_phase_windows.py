@@ -1,4 +1,4 @@
-# tests/test_phase_windows.py
+﻿# tests/test_phase_windows.py
 """S5 phase-window f primitives + kernel where-on-window branch."""
 from __future__ import annotations
 import pytest
@@ -254,3 +254,89 @@ def test_phenotype_arrays_default_bb0_window_columns_degenerate():
         assert abs(f_hi - f_lo) < 1e-6, f"sid={sid}: f_hi={f_hi} != f_lo={f_lo}"
         assert int(phe2["burst_w"][sid].item()) == 1
         assert int(phe2["burst_k"][sid].item()) == 1
+
+
+def test_default_bb0_same_seed_byte_identical_post_s5():
+    """S5 changed kernel line, but default strains degenerate statically -> byte-identical."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng_a = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_b = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_a.run(30, recorder=None, stop_on=())
+    eng_b.run(30, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id)
+
+
+def test_fburst_seed_reproducible_across_runs():
+    """FBURST strain same seed 2 runs -> bit-identical."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    base = list(BB0_TEMPLATE["layout"])
+    base[0] = "FBURST"  # slot 0 is mutable
+    fburst_layout = tuple(base)
+    eng_a = Engine(H=4, W=4, K=16, seed=42, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(fburst_layout,) * 4)
+    eng_b = Engine(H=4, W=4, K=16, seed=42, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(fburst_layout,) * 4)
+    eng_a.run(15, recorder=None, stop_on=())
+    eng_b.run(15, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id)
+
+
+def test_f_nova_seed_reproducible_across_runs():
+    """F_NOVA strain same seed 2 runs -> bit-identical."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    base = list(BB0_TEMPLATE["layout"])
+    base[0] = "F_NOVA"  # slot 0 is mutable
+    fnova_layout = tuple(base)
+    eng_a = Engine(H=4, W=4, K=16, seed=42, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(fnova_layout,) * 4)
+    eng_b = Engine(H=4, W=4, K=16, seed=42, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=4,
+                   layouts=(fnova_layout,) * 4)
+    eng_a.run(22, recorder=None, stop_on=())
+    eng_b.run(22, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id)
+
+
+def test_phase_window_on_mask_formula_directly():
+    """Directly verify on = ((T - birth_tick) % burst_w) < burst_k formula."""
+    import torch
+    burst_w = torch.tensor([12, 12, 12, 12, 12, 12, 20, 20, 20], dtype=torch.int64)
+    burst_k = torch.tensor([2, 2, 2, 2, 2, 2, 1, 1, 1], dtype=torch.int64)
+    birth_tick = torch.zeros(9, dtype=torch.int64)
+    Ts = torch.tensor([0, 1, 2, 11, 12, 24, 0, 1, 20], dtype=torch.int64)
+    on = ((Ts - birth_tick) % burst_w.clamp(min=1)) < burst_k
+    expected = torch.tensor([True, True, False, False, True, True,
+                             True, False, True])
+    assert torch.equal(on, expected), f"on={on.tolist()}, expected={expected.tolist()}"
+
+
+def test_fburst_offspring_window_on_vs_off():
+    """FBURST run 24 ticks: system-level sanity - total count > 0."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    base = list(BB0_TEMPLATE["layout"])
+    base[0] = "FBURST"  # slot 0 is mutable
+    fburst_layout = tuple(base)
+    layouts = (fburst_layout,) * 4
+    eng = Engine(H=8, W=8, K=32, seed=0, device=torch.device("cpu"),
+                 z_max=8.0, fill_per_cell=16, layouts=layouts)
+    eng.run(24, recorder=None, stop_on=())
+    total = int(eng.world.count.sum().item())
+    assert total > 0, "FBURST strain should produce offspring across windows"

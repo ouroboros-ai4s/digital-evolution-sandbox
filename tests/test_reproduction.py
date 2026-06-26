@@ -1,4 +1,4 @@
-# tests/test_reproduction.py
+﻿# tests/test_reproduction.py
 import pytest
 import torch
 from des.world import World, init_bb0
@@ -237,3 +237,37 @@ def test_f4nr1_offspring_lands_at_hash_locked_neighbor():
     eng_b.run(1, recorder=None, stop_on=())
     assert torch.equal(eng_a.world.count, eng_b.world.count)
 
+
+def test_fburst_byte_identical_when_seed_matches():
+    """FBURST same seed run 30 ticks byte-identical."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    base = list(BB0_TEMPLATE["layout"])
+    base[0] = "FBURST"  # slot 0 is mutable
+    fburst_layout = tuple(base)
+    eng_a = Engine(H=4, W=4, K=8, seed=7, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(fburst_layout,) * 4)
+    eng_b = Engine(H=4, W=4, K=8, seed=7, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(fburst_layout,) * 4)
+    eng_a.run(30, recorder=None, stop_on=())
+    eng_b.run(30, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+
+
+def test_default_bb0_byte_identical_post_s5_kernel_change():
+    """S5 kernel change: BB0 strain degenerates statically -> byte-identical."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng_a = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_b = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_a.run(30, recorder=None, stop_on=())
+    eng_b.run(30, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)

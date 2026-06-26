@@ -74,7 +74,14 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
     dev = world.device
     sid_long = snap_sid.long()
 
-    f = phe["f"][sid_long]                       # [H,W,K]
+    # S5: windowed live f. (T - birth_tick) % burst_w < burst_k → on; on→f_hi, off→f_lo.
+    # burst_w.clamp(min=1) is defensive (defaults are 1; FBURST=12, F_NOVA=20).
+    f_hi    = phe["f_hi"][sid_long]                           # [H,W,K] float32
+    f_lo    = phe["f_lo"][sid_long]                           # [H,W,K] float32
+    burst_w = phe["burst_w"][sid_long].clamp(min=1)           # [H,W,K] int64
+    burst_k = phe["burst_k"][sid_long]                        # [H,W,K] int64
+    on = ((T - birth_tick) % burst_w) < burst_k               # [H,W,K] bool
+    f  = torch.where(on, f_hi, f_lo)                          # [H,W,K] float32
     p_leave = phe["p_leave"][sid_long]
     p_x = phe["p_x"][sid_long]
     repro_period = phe["repro_period"][sid_long]
