@@ -5,6 +5,7 @@ from enum import IntEnum
 
 EMPTY_ID = 0
 FAMILY_RANK = {"N": 0, "F": 1, "P": 2, "Z": 3}
+IN_PLACE_DIR: tuple[int, int] = (0, 0)
 
 class PhaseType(IntEnum):
     ANTAGONISM = 1

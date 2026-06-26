@@ -8,8 +8,7 @@ Spec: docs/superpowers/specs/2026-06-24-s8-*.md
 """
 from __future__ import annotations
 
-# IN_PLACE_DIR = (0, 0) — sentinel tuple for in-place F primitives
-IN_PLACE_DIR: tuple[int, int] = (0, 0)
+from des.types import IN_PLACE_DIR
 
 
 # 24 A-pool letters: 3 groups (乙1/乙2/甲) × 8 letters each
