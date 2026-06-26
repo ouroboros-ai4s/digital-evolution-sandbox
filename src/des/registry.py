@@ -376,6 +376,48 @@ def _spectrum_for(letter: str) -> tuple[tuple[str, float], ...]:
     return tuple((t, w / tot) for t, w in sorted(survivors.items()))
 
 
+def blend_p_spectra(
+    pairs: tuple[tuple[float, tuple[tuple[str, float], ...]], ...],
+) -> tuple[tuple[str, float], ...]:
+    """p_add-weighted average of per-letter spectra, renormalized to Σ=1.
+
+    spec §4.1: spectrum(t) = Σ_i p_add_i · q_i(t) / Σ_i p_add_i  (Σ p_add > 0)
+               spectrum(t) = Σ_i q_i(t) / N_p                      (Σ p_add == 0)
+
+    Edge cases:
+      empty pairs             -> ()
+      single (p, q)           -> q  (identity; v1 dominant_p path byte-equal)
+      every p_add_i == 0      -> equal-weight average
+      some q_i == ()          -> skip (zero contribution everywhere)
+    """
+    if not pairs:
+        return ()
+
+    nonempty = tuple((p, q) for p, q in pairs if q)
+    if not nonempty:
+        return ()
+
+    if len(nonempty) == 1:
+        return nonempty[0][1]
+
+    sum_p = sum(p for p, _ in nonempty)
+    if sum_p > 0.0:
+        weights = tuple(p / sum_p for p, _ in nonempty)
+    else:
+        n = len(nonempty)
+        weights = tuple(1.0 / n for _ in nonempty)
+
+    bucket: dict[str, float] = {}
+    for w, (_, q) in zip(weights, nonempty):
+        for tgt, qi in q:
+            bucket[tgt] = bucket.get(tgt, 0.0) + w * qi
+
+    tot = sum(bucket.values())
+    if tot <= 0.0:
+        return ()
+    return tuple((t, w / tot) for t, w in sorted(bucket.items()) if w > 0.0)
+
+
 def motif_blocks(layout: tuple[str, ...]) -> tuple[tuple[int, int, str], ...]:
     """Decompose a flat-16 layout into `(start, end, letter)` blocks. Residue
     letters appear as singletons `(i, i+1, letter)`. Runs of the same
@@ -609,7 +651,14 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     f = 1 - f_prod
     p_leave = 1 - pl_prod
     p_x = max(MU, 1 - px_prod)
-    spectrum = _spectrum_for(dominant_p) if dominant_p else ()
+    # S8 §4.1: p_add-weighted blend of all P-letters in sequence.
+    # Single-letter strains: identity path (byte-identical to pre-S8 dominant_p).
+    p_pairs = tuple(
+        (_P[letter][0], _spectrum_for(letter))
+        for letter in sequence
+        if letter in _P
+    )
+    spectrum = blend_p_spectra(p_pairs) if p_pairs else ()
     # S7: piggyback dominant_p (S2 spectrum-source rule, registry.py:101-105) —
     # N is read from the SAME letter the spectrum is sourced from. Default 1
     # (no P letter, or dominant_p has SLOTS_PER_EVENT=1).

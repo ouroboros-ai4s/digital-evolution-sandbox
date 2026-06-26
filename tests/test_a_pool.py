@@ -238,3 +238,54 @@ def test_spectrum_shape_family_mask_domain_includes_cross():
     for letter, (_, mask, _) in SPECTRUM_SHAPE.items():
         assert mask in (None, "F", "Z", "N", "adjacent", "cross"), (
             f"{letter}: bad family_mask {mask!r}")
+
+
+# --- Task 5 surface: phenotype() multi-P blend integration --------------------
+
+def test_phenotype_default_bb0_spectrum_byte_identical_to_pre_S8():
+    """Default BB0 dominant_p='P_base' (single P letter) → blend == _spectrum_for('P_base')
+    byte-equal (single-letter identity). Guards spec §3 red line + §4.1 identity."""
+    from des.registry import phenotype, _spectrum_for, BB0_TEMPLATE
+    p = phenotype(BB0_TEMPLATE["layout"])
+    expected = _spectrum_for("P_base")
+    assert p.spectrum == expected, (
+        f"single-P-letter blend must equal _spectrum_for('P_base') byte-equal;\n"
+        f"got    {p.spectrum!r}\n"
+        f"expect {expected!r}")
+
+
+def test_phenotype_two_P_letters_blends_per_spec_4_1():
+    """Strain with P_base (p_add=0.0) + P_hotspot (p_add=0.05) →
+    blend = (0·q_base + 0.05·q_hotspot) / 0.05 = q_hotspot byte-equal."""
+    from des.registry import phenotype, _spectrum_for
+    seq = ("P_base", "P_hotspot") + ("N0",) * 14
+    p = phenotype(seq)
+    expected = _spectrum_for("P_hotspot")
+    assert p.spectrum == expected, (
+        f"blend with one zero-weight letter must equal the nonzero one;\n"
+        f"got    {p.spectrum!r}\n"
+        f"expect {expected!r}")
+
+
+def test_phenotype_three_P_letters_all_zero_p_add_equal_weight():
+    """3 letters all p_add=0 (P_base / P_slow_drift / P_frozen) →
+    Σ p_add = 0 → equal-weight blend = (q_base + q_slow_drift + q_frozen) / 3."""
+    from des.registry import phenotype, _spectrum_for, blend_p_spectra
+    seq = ("P_base", "P_slow_drift", "P_frozen") + ("N0",) * 13
+    p = phenotype(seq)
+    expected = blend_p_spectra((
+        (0.0, _spectrum_for("P_base")),
+        (0.0, _spectrum_for("P_slow_drift")),
+        (0.0, _spectrum_for("P_frozen")),
+    ))
+    assert p.spectrum == expected
+
+
+def test_phenotype_dominant_p_field_still_used_by_slots_per_event():
+    """S7 slots_per_event still reads dominant_p: (P_base, P_cascade) →
+    dominant_p=P_cascade (p_add=0.28 highest) → slots_per_event=2."""
+    from des.registry import phenotype
+    seq = ("P_base", "P_cascade") + ("N0",) * 14
+    p = phenotype(seq)
+    assert p.slots_per_event == 2, (
+        f"dominant_p='P_cascade' should propagate slots=2, got {p.slots_per_event!r}")

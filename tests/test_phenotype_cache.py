@@ -192,3 +192,12 @@ def test_phenotype_slots_per_event_field_default_bb0():
     from des.registry import phenotype, BB0_TEMPLATE
     p = phenotype(BB0_TEMPLATE["layout"])
     assert p.slots_per_event == 1
+
+
+def test_phenotype_cache_byte_identical_for_single_P_letter_post_S8():
+    """Cache: same sequence → same Phenotype object both times (frozen dataclass)."""
+    from des.registry import phenotype, BB0_TEMPLATE
+    p1 = phenotype(BB0_TEMPLATE["layout"])
+    p2 = phenotype(BB0_TEMPLATE["layout"])
+    assert p1 == p2
+    assert p1.spectrum == p2.spectrum
