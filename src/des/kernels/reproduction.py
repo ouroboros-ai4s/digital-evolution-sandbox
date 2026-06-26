@@ -31,32 +31,51 @@ class ArrivalBuffer:
                 torch.cat(self._fac))
 
 
-def _mutation_outcomes(seq, mutable, spectrum, blocks):
-    """Per-parent mutation categorical (design L246: uniform mutable slot x spectrum
-    letter). Returns (child_sequences, weights) over the full slot x spectrum product;
-    weights sum to 1. Self-loops (letter == current) yield child == parent. Pure fn
-    of the sequence + its spectrum + its motif-block decomposition (S6).
-    Residue slot → singleton overwrite. Motif slot → whole-block overwrite with the
-    equal-length target letter (block boundaries come from `blocks`)."""
+def _mutation_outcomes(seq, mutable, spectrum, blocks, slots_per_event=1):
+    """Per-parent mutation categorical. N=1 (default) keeps the legacy single-slot
+    overwrite path verbatim (same enumeration order, same weights, same RNG
+    call count — spec §3 red line 'by construction byte-identical, not merely
+    distributionally equal'). N>=2 enumerates unordered slot-sets of size N
+    (clamped to #mutable) × per-slot spectrum letters; weight of (slot-set S,
+    letters) = (1/C(m,N)) * prod(q(letter_s) for s in S). At N=1 the joint
+    formula reduces to q/C(m,1) = q/m — continuous with the legacy path; N=1
+    nonetheless takes the verbatim legacy branch to guarantee byte-identity.
+
+    Returns (child_sequences, weights) over the full enumeration; weights
+    sum to 1. Self-loops (letter == current) yield child == parent. Pure fn
+    of (sequence, spectrum, motif blocks, N) — reads no world state."""
     slot_idx = [i for i, ok in enumerate(mutable) if ok]
     if not slot_idx or not spectrum:
         return [], []
-    # index -> (start, end) of the block covering position i.
-    # residue letters are length-1 blocks; this map is total over 0..len(seq)-1.
+    # index -> (start, end) of the block covering position i (S6 motif overwrite).
     cover: dict[int, tuple[int, int]] = {}
     for s, e, _ in blocks:
         for k in range(s, e):
             cover[k] = (s, e)
-    children, weights = [], []
-    for s in slot_idx:                      # ascending: canonical order
-        for letter, q in spectrum:          # spectrum already sorted in _spectrum_for
-            start, end = cover[s]
-            new = list(seq)
-            for k in range(start, end):      # overwrite the whole covering block
-                new[k] = letter
-            children.append(tuple(new))
-            weights.append(q / len(slot_idx))
-    return children, weights
+
+    if slots_per_event == 1:
+        # ---------------------------------------------------------------
+        # N=1: legacy verbatim path (pre-S7). DO NOT REFACTOR INTO JOINT
+        # ENUMERATION — spec §3 red line requires the byte-identical
+        # enumeration order + RNG call count, not just the same weights.
+        # ---------------------------------------------------------------
+        children, weights = [], []
+        for s in slot_idx:                      # ascending: canonical order
+            for letter, q in spectrum:          # spectrum already sorted in _spectrum_for
+                start, end = cover[s]
+                new = list(seq)
+                for k in range(start, end):      # S6: overwrite the whole covering block
+                    new[k] = letter
+                children.append(tuple(new))
+                weights.append(q / len(slot_idx))
+        return children, weights
+
+    # N>=2: joint enumeration path lands in Task 4.
+    raise NotImplementedError(
+        f"_mutation_outcomes slots_per_event>=2 lands in S7 Task 4; "
+        f"got slots_per_event={slots_per_event}. "
+        f"(P_cascade is the sole roster letter with slots=2 and is minted in S8.)"
+    )
 
 
 def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
@@ -180,9 +199,11 @@ def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
             if p == 0:
                 continue
             seq = table.sequence_of(p)
-            spectrum = table.phenotype_of(p).spectrum
+            phe_obj = table.phenotype_of(p)
+            spectrum = phe_obj.spectrum
             children, weights = _mutation_outcomes(
-                seq, BB0_TEMPLATE["mutable"], spectrum, motif_blocks(seq))
+                seq, BB0_TEMPLATE["mutable"], spectrum, motif_blocks(seq),
+                slots_per_event=phe_obj.slots_per_event)
             if not children:
                 continue                                  # no mutation possible -> stays parent
             out_sid = [table.get_or_mint(c) for c in children]  # self-loop -> parent sid

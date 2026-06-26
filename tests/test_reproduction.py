@@ -271,3 +271,22 @@ def test_default_bb0_byte_identical_post_s5_kernel_change():
     eng_a.run(30, recorder=None, stop_on=())
     eng_b.run(30, recorder=None, stop_on=())
     assert torch.equal(eng_a.world.count, eng_b.world.count)
+
+
+def test_mutation_outcomes_accepts_slots_per_event_kwarg_default_1():
+    """_mutation_outcomes 加形参 slots_per_event=1, legacy 3-arg / 4-arg
+    (S6 blocks) call 仍合法 — 默认 kwarg 接住."""
+    from des.kernels.reproduction import _mutation_outcomes
+    from des.registry import _spectrum_for, BB0_TEMPLATE
+    seq = BB0_TEMPLATE["layout"]
+    mutable = BB0_TEMPLATE["mutable"]
+    spectrum = _spectrum_for("P_base")
+    # legacy call (不带 slots_per_event) 仍正常返回
+    try:
+        from des.registry import motif_blocks
+        out = _mutation_outcomes(seq, mutable, spectrum, motif_blocks(seq))
+    except ImportError:
+        out = _mutation_outcomes(seq, mutable, spectrum)
+    children, weights = out
+    assert len(children) == sum(mutable) * len(spectrum)
+    assert abs(sum(weights) - 1.0) < 1e-9
