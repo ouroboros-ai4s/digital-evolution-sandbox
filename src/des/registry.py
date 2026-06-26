@@ -210,6 +210,14 @@ _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # The 4th element is OPTIONAL: a 3-tuple row defaults vis_mode to 0.
     "BroadSweep": (0.40, (("F",), ("Z",)), 5, 0),
 }
+
+# S3: prey-clause cardinality (|prey_s| in roster Mirror Fang spec §1).
+# Module-load derived from _Z[letter][1] (the prey_clauses tuple) so the
+# feature_mask_of hot path reads O(1) per Z letter, never iterates clauses
+# at mint time. Co-extensive with _Z; adding a new _Z row REQUIRES this
+# dict be re-derived (it is, on every module import).
+_Z_PREY_CARD: dict[str, int] = {name: len(row[1]) for name, row in _Z.items()}
+
 _P = {    # name -> (p_add, period); effective rate = min(p_max, μ + p_add)
     "P_base": (0.0, 1),
     "P_hotspot": (_DELTA, 3),

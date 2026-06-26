@@ -280,3 +280,14 @@ def test_s5_gran_covers_FBURST_and_F_NOVA():
     from des.registry import GRAN, ALPHABET
     for letter in ALPHABET:
         assert letter in GRAN, f"{letter} missing from GRAN"
+
+
+# ---------------------------------------------------------------------------
+# S3 Task 1: _Z_PREY_CARD module-load derivation
+# ---------------------------------------------------------------------------
+
+def test_s3_z_prey_card_module_level_derivation():
+    """_Z_PREY_CARD 是 module-load 派生 (而非运行时算), key 与 _Z 同."""
+    from des.registry import _Z, _Z_PREY_CARD
+    assert set(_Z_PREY_CARD) == set(_Z)
+    assert _Z_PREY_CARD["BroadSweep"] == 2
