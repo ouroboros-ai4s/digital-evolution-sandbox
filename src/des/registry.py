@@ -343,15 +343,48 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
       - family_<X> for every letter present (X = ALPHABET[letter]),
       - motif_<X> if the sequence has at least one motif block of family X,
       - motif3_<X> if the sequence has a motif block of family X with MOTIF_LEN>=3,
-      - vis_lowvis if the sequence has any fam=N letter with VIS[letter] <= 0.20.
-    Reserved thr_* bits stay 0 in S6/S1; S3 OR them in.
+      - vis_lowvis if the sequence has any fam=N letter with VIS[letter] <= 0.20,
+      - thr_crest if any F letter has f >= 0.5 (S3),
+      - thr_hotspot if any P letter has p_add >= 0.05 (S3),
+      - thr_mirror if any Z letter has z <= 0.45 and |prey| >= 2 (S3).
+    Reserved bits initially 0; all conditions are OR'd.
     Pure function of the sequence — reads only registry tables."""
     m = 0
+    vis_lowvis_found = False
+    thr_crest_found = False
+    thr_hotspot_found = False
+    thr_mirror_found = False
+
+    # Single pass over sequence for family bits and threshold conditions
     for letter in sequence:
         fam = ALPHABET.get(letter)
         if fam is None:
             continue
         m |= PREDICATE_BIT[f"family_{fam}"]
+
+        # S1: vis_lowvis — fam=N and VIS<=0.20
+        if not vis_lowvis_found and fam == "N" and VIS.get(letter, 0.0) <= 0.20:
+            m |= PREDICATE_BIT["vis_lowvis"]
+            vis_lowvis_found = True
+
+        # S3: thr_crest — F letter with f >= 0.5
+        if not thr_crest_found and letter in _F and _F[letter][0] >= 0.5:
+            m |= PREDICATE_BIT["thr_crest"]
+            thr_crest_found = True
+
+        # S3: thr_hotspot — P letter with p_add >= 0.05
+        if not thr_hotspot_found and letter in _P and _P[letter][0] >= 0.05:
+            m |= PREDICATE_BIT["thr_hotspot"]
+            thr_hotspot_found = True
+
+        # S3: thr_mirror — Z letter with z <= 0.45 and |prey| >= 2
+        if (not thr_mirror_found and letter in _Z
+                and _Z[letter][0] <= 0.45
+                and _Z_PREY_CARD[letter] >= 2):
+            m |= PREDICATE_BIT["thr_mirror"]
+            thr_mirror_found = True
+
+    # Motif block processing (requires motif_blocks scan)
     for s, e, letter in motif_blocks(sequence):
         if GRAN.get(letter) != "motif":
             continue
@@ -361,35 +394,7 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
         m |= PREDICATE_BIT[f"motif_{fam}"]
         if MOTIF_LEN[letter] >= 3 and fam in ("F", "P", "Z"):
             m |= PREDICATE_BIT[f"motif3_{fam}"]
-    # S1: vis_lowvis — any fam=N letter with VIS<=0.20 (inclusive). N0 default
-    # vis=0.20 SETs the bit on the default BB0 strain; harmless because no v1
-    # primitive consumes it (Void Bite is dormant until S8).
-    for letter in sequence:
-        if ALPHABET.get(letter) == "N" and VIS.get(letter, 0.0) <= 0.20:
-            m |= PREDICATE_BIT["vis_lowvis"]
-            break
-    # S3: thr_crest — strain carries any F letter with f >= 0.5 (Crest Bite prey
-    # clause from roster §1 + spec §3.1). Default BB0's F4Nr4 (f=0.50) SETs it.
-    for letter in sequence:
-        if letter in _F and _F[letter][0] >= 0.5:
-            m |= PREDICATE_BIT["thr_crest"]
-            break
-    # S3: thr_hotspot — strain carries any P letter with p_add >= 0.05 (Hotspot
-    # Snipe prey clause). Default BB0's P_base (0.0) does NOT set it.
-    for letter in sequence:
-        if letter in _P and _P[letter][0] >= 0.05:
-            m |= PREDICATE_BIT["thr_hotspot"]
-            break
-    # S3: thr_mirror — strain carries any Z letter with z <= 0.45 AND
-    # |prey_clauses| >= 2 (Mirror Fang prey clause; |prey_s| precomputed in
-    # _Z_PREY_CARD at module load — never iterates clauses on the hot path).
-    # Default BB0's BroadSweep (z=0.40, 2 prey clauses) SETs it.
-    for letter in sequence:
-        if (letter in _Z
-                and _Z[letter][0] <= 0.45
-                and _Z_PREY_CARD[letter] >= 2):
-            m |= PREDICATE_BIT["thr_mirror"]
-            break
+
     return m
 
 

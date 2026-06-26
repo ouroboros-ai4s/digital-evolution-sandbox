@@ -303,3 +303,28 @@ def test_prey_mask_for_clauses_unknown_tag_falls_through_to_family():
     pm = prey_mask_for_clauses((("F", "unknown_future_tag"),))
     assert pm == PREDICATE_BIT["family_F"], (
         f"unknown tag must fall through to family bit; got {pm:b}")
+
+
+# ---------------------------------------------------------------------------
+# Task 5: vis_lowvis end-to-end audit (S1 prey side + S3 predator side)
+# ---------------------------------------------------------------------------
+
+def test_vis_lowvis_end_to_end_s1_prey_meets_s3_predator_clause():
+    """S1 把 vis_lowvis bit 设在 feature_mask (prey 端);
+       S3 把 ('N','lowvis') clause 映射到 vis_lowvis bit (predator 端).
+       Match expression 在合成 predator vs default BB0 prey 之间必须命中.
+
+       这一条是 'S1 vis_lowvis 死了没?' 的 end-to-end smoke — 守 Task 2
+       的扩展没误删 S1 Task 6 在 feature_mask_of 里加的那段 vis_lowvis
+       置位代码."""
+    from des.registry import (feature_mask_of, prey_mask_for_clauses,
+                               PREDICATE_BIT, BB0_TEMPLATE)
+    # prey 端: default BB0 含 N0 (vis=0.20 ≤ 0.20)
+    prey_m = feature_mask_of(BB0_TEMPLATE["layout"])
+    assert prey_m & PREDICATE_BIT["vis_lowvis"], (
+        "S1 Task 6 vis_lowvis bit 缺失 — Task 2 可能误覆写 feature_mask_of")
+    # predator 端: ('N', 'lowvis') clause → vis_lowvis bit
+    pred_m = prey_mask_for_clauses((("N", "lowvis"),))
+    assert pred_m == PREDICATE_BIT["vis_lowvis"]
+    # match 关系非零
+    assert (prey_m & pred_m) != 0
