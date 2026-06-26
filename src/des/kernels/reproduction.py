@@ -1,5 +1,7 @@
 # src/des/kernels/reproduction.py
 from __future__ import annotations
+from itertools import combinations, product
+from math import comb
 import torch
 from des.kernels.common import fires_this_tick, binom
 from des.registry import BB0_TEMPLATE, motif_blocks
@@ -70,12 +72,28 @@ def _mutation_outcomes(seq, mutable, spectrum, blocks, slots_per_event=1):
                 weights.append(q / len(slot_idx))
         return children, weights
 
-    # N>=2: joint enumeration path lands in Task 4.
-    raise NotImplementedError(
-        f"_mutation_outcomes slots_per_event>=2 lands in S7 Task 4; "
-        f"got slots_per_event={slots_per_event}. "
-        f"(P_cascade is the sole roster letter with slots=2 and is minted in S8.)"
-    )
+    # N>=2: joint enumeration. itertools.combinations gives unordered slot-sets
+    # (distinct, sample-without-replacement); itertools.product gives the
+    # per-slot letter Cartesian product. effective_N clamps to #mutable per spec §5.
+    m = len(slot_idx)
+    effective_N = min(slots_per_event, m)
+    inv_C_mN = 1.0 / comb(m, effective_N)
+    children, weights = [], []
+    for slot_set in combinations(slot_idx, effective_N):
+        # spectrum is already sorted in _spectrum_for; product preserves
+        # lex order over the spectrum tuples.
+        for letter_tuple in product(spectrum, repeat=effective_N):
+            # Build the outcome: per-slot block overwrite with the chosen letter.
+            new = list(seq)
+            prod_q = 1.0
+            for s, (letter, q) in zip(slot_set, letter_tuple):
+                start, end = cover[s]
+                for k in range(start, end):
+                    new[k] = letter
+                prod_q *= q
+            children.append(tuple(new))
+            weights.append(inv_C_mN * prod_q)
+    return children, weights
 
 
 def phase2_reproduce(world, snap_sid, snap_count, snap_faction, phe, table,
