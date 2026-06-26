@@ -355,3 +355,21 @@ def test_mutation_outcomes_N_eq_2_same_sequence_collapsed_by_get_or_mint(monkeyp
     eng.run(5, recorder=None, stop_on=())
     # 不抛 (kernel N=2 路径无崩); strain table 完整性 (有 strain 被 mint 即 PASS)
     assert len(eng.table) >= 1, "P_cascade synthetic letter should mint at least 1 strain"
+
+
+# --- Task 5: relabel-invariance sanity ---------------------------------------
+
+def test_slots_per_event_structural_under_relabel(monkeypatch):
+    """spec §6: slots_per_event is structural — shuffling _F/_Z/_P magnitudes
+    doesn't change which slots/letters are drawn (drives off spectrum +
+    mutable, both structural)."""
+    from des.registry import phenotype, BB0_TEMPLATE
+    pre = phenotype(BB0_TEMPLATE["layout"])
+    # 重排 _F / _Z / _P 量级 (NOT gran / NOT family / NOT SLOTS_PER_EVENT 值)
+    from des import registry
+    monkeypatch.setitem(registry._F, "F4Nr1", (0.95, "hash:f4nr1", 0.99, 99))
+    monkeypatch.setitem(registry._Z, "BroadSweep", (0.99, (("F",), ("Z",)), 99))
+    monkeypatch.setitem(registry._P, "P_hotspot", (0.0, 99))
+    post = phenotype(BB0_TEMPLATE["layout"])
+    # slots_per_event 是结构 readout — 与量级无关, 不漂移
+    assert post.slots_per_event == pre.slots_per_event
