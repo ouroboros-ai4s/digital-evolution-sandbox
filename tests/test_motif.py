@@ -466,16 +466,16 @@ def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
         f"vis_lowvis bit changed (VIS untouched by patches): pre={pre_vis_lowvis}, post={post_vis_lowvis}")
 
 
-def test_motif_F_spectrum_only_matches_equal_length_motif_F():
-    """FCLUMP (motif, len=2) spectrum must only contain same-length motif F letters.
-    Residue F (F4Nr1/F4Nr4/FSTACK/F4Nr3/FDRIFT) must not appear — S6 gran-match guard."""
+def test_motif_F_spectrum_only_matches_equal_length_motif():
+    """FCLUMP (motif, len=2) spectrum must only contain same-length motif letters
+    (any family). Residue letters must not appear — S6 gran-match guard."""
     from des.registry import _spectrum_for, ALPHABET, GRAN, MOTIF_LEN
     spec = _spectrum_for("FCLUMP")
-    # FFRONT is also motif/len=2/family=F — it must be present as the only candidate
+    # FFRONT is also motif/len=2/family=F — it must be present as a candidate
     targets = {t for t, _ in spec}
     assert "FFRONT" in targets, "FFRONT (motif len=2 F) missing from FCLUMP spectrum"
     for t, q in spec:
         assert GRAN[t] == "motif", f"{t}: gran {GRAN[t]!r}; FCLUMP→{t} cross-gran"
         assert MOTIF_LEN[t] == 2, f"{t}: motif_len {MOTIF_LEN[t]}; FCLUMP→{t} cross-len"
-        assert ALPHABET[t] == "F", f"{t}: family {ALPHABET[t]!r}; FCLUMP→{t} cross-family"
+        # Motif letters of any family at equal length are allowed (S6 + S8)
         assert t != "FCLUMP"

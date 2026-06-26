@@ -39,15 +39,31 @@ class TestNPool:
             assert VIS[letter] == expected_vis, \
                 f"VIS[{letter!r}] = {VIS[letter]}, expected {expected_vis}"
 
-    def test_n_pool_all_residue_gran(self):
-        """All N1-N7 have gran='residue' (N-pool is residue-based)."""
-        for letter in ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]:
+    def test_n1_to_n3_n5_n6_are_residue_gran(self):
+        """N1, N2, N3, N5, N6 have gran='residue' (residue-based N-pool subset)."""
+        for letter in ["N1", "N2", "N3", "N5", "N6"]:
             assert GRAN[letter] == "residue", \
                 f"GRAN[{letter!r}] = {GRAN[letter]}, expected 'residue'"
 
-    def test_n_pool_not_in_motif_len(self):
-        """N1-N7 must not appear in MOTIF_LEN (residue-only)."""
-        for letter in ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]:
+    def test_n4_n7_are_motif_gran(self):
+        """N4 and N7 have gran='motif' (motif-based N-pool subset per roster)."""
+        for letter in ["N4", "N7"]:
+            assert GRAN[letter] == "motif", \
+                f"GRAN[{letter!r}] = {GRAN[letter]}, expected 'motif'"
+
+    def test_n4_motif_len_is_2(self):
+        """N4 has MOTIF_LEN=2."""
+        assert MOTIF_LEN["N4"] == 2, \
+            f"MOTIF_LEN['N4'] = {MOTIF_LEN.get('N4')}, expected 2"
+
+    def test_n7_motif_len_is_2(self):
+        """N7 has MOTIF_LEN=2."""
+        assert MOTIF_LEN["N7"] == 2, \
+            f"MOTIF_LEN['N7'] = {MOTIF_LEN.get('N7')}, expected 2"
+
+    def test_n1_to_n3_n5_n6_not_in_motif_len(self):
+        """N1, N2, N3, N5, N6 must not appear in MOTIF_LEN (residue-only)."""
+        for letter in ["N1", "N2", "N3", "N5", "N6"]:
             assert letter not in MOTIF_LEN, \
                 f"{letter} should not be in MOTIF_LEN (residue letters must not appear)"
 

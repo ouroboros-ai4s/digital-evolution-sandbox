@@ -75,10 +75,10 @@ GRAN: dict[str, str] = {
     "N1": "residue",  # vis=0.40
     "N2": "residue",  # vis=0.70
     "N3": "residue",  # vis=0.15
-    "N4": "residue",  # vis=0.35 (note: not motif despite 整块占位; residue N-pool)
+    "N4": "motif",    # vis=0.35 — neutral motif block (functional-loss landing zone)
     "N5": "residue",  # vis=0.00
     "N6": "residue",  # vis=1.00
-    "N7": "residue",  # vis=0.10 (note: not motif despite 整块占位; residue N-pool)
+    "N7": "motif",    # vis=0.10 — stealth motif block
     "F4Nr1":      "residue",
     "F4Nr4":      "residue",
     "P_base":     "residue",
@@ -129,6 +129,9 @@ MOTIF_LEN: dict[str, int] = {
     # S4: motif F primitives (spec §3.4)
     "FCLUMP": 2,
     "FFRONT": 2,
+    # S6: N-pool motif primitives
+    "N4": 2,
+    "N7": 2,
 }
 MOTIF_LEN.update(_A_MOTIF_LEN)
 del _A_FAMILY, _A_GRAN, _A_MOTIF_LEN
