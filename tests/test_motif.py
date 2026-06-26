@@ -427,15 +427,19 @@ def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
     pre_n = (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z"))
     pre_mask = feature_mask_of(layout)
 
-    # Extract structural bits (family + motif + motif3 + vis_lowvis) from pre_mask
-    # by OR-ing the known structural bit indices
+    # Extract structural bits (family + motif + motif3) from pre_mask
+    # by OR-ing the known structural bit indices. vis_lowvis reads VIS
+    # (magnitude table), so it is NOT a structural bit — assert separately below.
     structural_bits = (PREDICATE_BIT["family_N"] | PREDICATE_BIT["family_F"] |
                        PREDICATE_BIT["family_P"] | PREDICATE_BIT["family_Z"] |
                        PREDICATE_BIT["motif_F"] | PREDICATE_BIT["motif_P"] |
                        PREDICATE_BIT["motif_Z"] | PREDICATE_BIT["motif_N"] |
                        PREDICATE_BIT["motif3_F"] | PREDICATE_BIT["motif3_P"] |
-                       PREDICATE_BIT["motif3_Z"] | PREDICATE_BIT["vis_lowvis"])
+                       PREDICATE_BIT["motif3_Z"])
     pre_structural = pre_mask & structural_bits
+    # vis_lowvis reads VIS (magnitude), but monkeypatches here do not touch VIS
+    # → invariant under this perturbation set
+    pre_vis_lowvis = pre_mask & PREDICATE_BIT["vis_lowvis"]
 
     # mutate _F / _Z / _P magnitudes (NOT gran / NOT family / NOT MOTIF_LEN)
     monkeypatch.setitem(registry._F, "F4Nr1",
@@ -449,12 +453,17 @@ def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
     # structural readouts MUST be unchanged
     assert motif_blocks(layout) == pre_blocks
     assert (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z")) == pre_n
-    # STRUCTURAL bits (family/motif/motif3/vis_lowvis) must be unchanged;
+    # STRUCTURAL bits (family/motif/motif3) must be unchanged;
     # threshold bits (thr_*) may change due to magnitude mutations
     post_mask = feature_mask_of(layout)
     post_structural = post_mask & structural_bits
     assert post_structural == pre_structural, (
         f"structural bits changed: pre={bin(pre_structural)}, post={bin(post_structural)}")
+    # vis_lowvis reads VIS (magnitude), but monkeypatches do not touch VIS
+    # → it must remain invariant under this perturbation set
+    post_vis_lowvis = post_mask & PREDICATE_BIT["vis_lowvis"]
+    assert post_vis_lowvis == pre_vis_lowvis, (
+        f"vis_lowvis bit changed (VIS untouched by patches): pre={pre_vis_lowvis}, post={post_vis_lowvis}")
 
 
 def test_motif_F_spectrum_only_matches_equal_length_motif_F():

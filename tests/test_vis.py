@@ -69,6 +69,8 @@ def test_phenotype_vis_mode_reads_z_row_mode_1(monkeypatch):
     monkeypatch.setitem(registry.VIS, "ScatterNip", 0.0)
     monkeypatch.setitem(registry._Z, "ScatterNip",
                         (0.40, (("N",),), 5, 1))   # mode 1
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "ScatterNip", 1)
     seq = ("ScatterNip",) + ("N0",) * 15
     p = phenotype(seq)
     assert p.vis_mode == 1
@@ -81,6 +83,8 @@ def test_phenotype_vis_mode_reads_z_row_mode_2(monkeypatch):
     monkeypatch.setitem(registry.VIS, "GhostSpike", 0.0)
     monkeypatch.setitem(registry._Z, "GhostSpike",
                         (0.40, (("N",),), 5, 2))   # mode 2
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "GhostSpike", 1)
     seq = ("GhostSpike",) + ("N0",) * 15
     p = phenotype(seq)
     assert p.vis_mode == 2
@@ -94,6 +98,8 @@ def test_phenotype_vis_mode_takes_max_across_multiple_z(monkeypatch):
     monkeypatch.setitem(registry.VIS, "ScatterNip", 0.0)
     monkeypatch.setitem(registry._Z, "ScatterNip",
                         (0.40, (("N",),), 5, 1))
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "ScatterNip", 1)
     seq = ("ScatterNip", "BroadSweep") + ("N0",) * 14
     p = phenotype(seq)
     # ScatterNip mode 1 vs BroadSweep mode 0 → max = 1
@@ -107,6 +113,8 @@ def test_phenotype_z_row_3_tuple_back_compat(monkeypatch):
     monkeypatch.setitem(registry.VIS, "Z3", 0.0)
     monkeypatch.setitem(registry._Z, "Z3",
                         (0.30, (("F",),), 5))      # 3-tuple (no mode element)
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "Z3", 1)
     seq = ("Z3",) + ("N0",) * 15
     p = phenotype(seq)
     assert p.vis_mode == 0
@@ -171,6 +179,8 @@ def _build_phe_for_vis_test(monkeypatch, mode, prey_letter, prey_vis):
     monkeypatch.setitem(registry.VIS,      "Hunt", 0.0)
     monkeypatch.setitem(registry._Z,       "Hunt",
                         (0.40, (("N",),), 1, mode))   # period=1 → always fires
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause in Hunt)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "Hunt", 1)
     monkeypatch.setitem(registry.ALPHABET, prey_letter, "N")
     monkeypatch.setitem(registry.GRAN,     prey_letter, "residue")
     monkeypatch.setitem(registry.VIS,      prey_letter, prey_vis)
@@ -216,6 +226,8 @@ def test_mode1_empty_n_profile_kills_zero(monkeypatch):
     monkeypatch.setitem(registry.VIS,      "Hunt", 0.0)
     monkeypatch.setitem(registry._Z,       "Hunt",
                         (0.40, (("N",),), 1, 1))   # period=1 → always fires
+    # _Z_PREY_CARD must be updated when _Z is patched (1 prey clause in Hunt)
+    monkeypatch.setitem(registry._Z_PREY_CARD, "Hunt", 1)
     # Synthetic inert N letter: vis=0.0, no Z primitive.
     monkeypatch.setitem(registry.ALPHABET, "Ninert", "N")
     monkeypatch.setitem(registry.GRAN,     "Ninert", "residue")

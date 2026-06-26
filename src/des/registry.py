@@ -387,7 +387,7 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
     for letter in sequence:
         if (letter in _Z
                 and _Z[letter][0] <= 0.45
-                and _Z_PREY_CARD.get(letter, 0) >= 2):
+                and _Z_PREY_CARD[letter] >= 2):
             m |= PREDICATE_BIT["thr_mirror"]
             break
     return m
