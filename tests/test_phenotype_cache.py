@@ -180,3 +180,15 @@ def test_phenotype_arrays_default_bb0_vis_mode_is_zero():
                  layouts=(BB0_TEMPLATE["layout"],) * 4)
     arr = eng.table.phenotype_arrays(eng.device)
     assert int(arr["vis_mode"].max().item()) == 0
+
+
+# ---------------------------------------------------------------------------
+# S7 Task 2: Phenotype.slots_per_event field
+# ---------------------------------------------------------------------------
+
+def test_phenotype_slots_per_event_field_default_bb0():
+    """phenotype(BB0).slots_per_event == 1 — 默认 BB0 dominant_p='P_base',
+    SLOTS_PER_EVENT['P_base']=1, 静态默认."""
+    from des.registry import phenotype, BB0_TEMPLATE
+    p = phenotype(BB0_TEMPLATE["layout"])
+    assert p.slots_per_event == 1

@@ -571,6 +571,10 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
     p_leave = 1 - pl_prod
     p_x = max(MU, 1 - px_prod)
     spectrum = _spectrum_for(dominant_p) if dominant_p else ()
+    # S7: piggyback dominant_p (S2 spectrum-source rule, registry.py:101-105) —
+    # N is read from the SAME letter the spectrum is sourced from. Default 1
+    # (no P letter, or dominant_p has SLOTS_PER_EVENT=1).
+    slots_per_event = SLOTS_PER_EVENT.get(dominant_p, 1) if dominant_p else 1
     period = min(periods) if periods else 1
     repro_period = min(f_periods) if f_periods else 1
     anta_period = min(z_periods) if z_periods else 1
@@ -608,6 +612,7 @@ def phenotype(sequence: tuple[str, ...]) -> Phenotype:
         vis_sum=vis_sum, n_count=n_count, vis_mode=vis_mode,
         in_place=in_place, rand_dir=rand_dir,
         f_hi=f, f_lo=f_lo_stacked, burst_w=burst_w_out, burst_k=burst_k_out,
+        slots_per_event=slots_per_event,
     )
 
 

@@ -35,3 +35,4 @@ class Phenotype:
     f_lo: float = 0.0          # S5: stacked off-window f (static default = f_hi)
     burst_w: int = 1           # S5: window period (static default 1 → always on)
     burst_k: int = 1           # S5: on-window length (static default 1 → 100% duty)
+    slots_per_event: int = 1   # S7: N slots/event; static default 1 = current single-slot behavior
