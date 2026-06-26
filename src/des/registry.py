@@ -13,6 +13,8 @@ P_MAX = 0.08
 # letter -> family. v1 subset: BB0 locked set + 2 mutation-ladder rungs + N filler.
 ALPHABET = {
     "N0": "N",
+    "N1": "N", "N2": "N", "N3": "N", "N4": "N",
+    "N5": "N", "N6": "N", "N7": "N",
     "F4Nr1": "F", "F4Nr4": "F",
     "P_base": "P", "P_hotspot": "P",
     "BroadSweep": "Z",
@@ -36,6 +38,22 @@ ALPHABET = {
     # S5: F-pool phase-window primitives (spec §3.2)
     "FBURST":  "F",
     "F_NOVA":  "F",
+    # Z core 15 (gap-fill)
+    "Scatter Nip":    "Z",
+    "Epitope Bleed":  "Z",
+    "Ghost Spike":    "Z",
+    "Attrition Bite": "Z",
+    "Hapten Graze":   "Z",
+    "Burst Leech":    "Z",
+    "Ambush Coil":    "Z",
+    "Clade Snare":    "Z",
+    "Frame Pincer":   "Z",
+    "Lineage Reaper": "Z",
+    "Coil Cinch":     "Z",
+    "Idiotype Lance": "Z",
+    "Crest Bite":     "Z",
+    "Hotspot Snipe":  "Z",
+    "Mirror Fang":    "Z",
 }
 # S8: merge 24 A-pool rows into registry tables.
 from des._a_pool import (
@@ -54,6 +72,13 @@ ALPHABET.update(_A_FAMILY)
 # other letter is residue by single-position occupancy. v1 alphabet is all-residue.
 GRAN: dict[str, str] = {
     "N0":         "residue",
+    "N1": "residue",  # vis=0.40
+    "N2": "residue",  # vis=0.70
+    "N3": "residue",  # vis=0.15
+    "N4": "residue",  # vis=0.35 (note: not motif despite 整块占位; residue N-pool)
+    "N5": "residue",  # vis=0.00
+    "N6": "residue",  # vis=1.00
+    "N7": "residue",  # vis=0.10 (note: not motif despite 整块占位; residue N-pool)
     "F4Nr1":      "residue",
     "F4Nr4":      "residue",
     "P_base":     "residue",
@@ -79,6 +104,22 @@ GRAN: dict[str, str] = {
     # S5: F-pool phase-window primitives
     "FBURST":  "residue",
     "F_NOVA":  "residue",
+    # Z core 15 (gap-fill, all residue)
+    "Scatter Nip":    "residue",
+    "Epitope Bleed":  "residue",
+    "Ghost Spike":    "residue",
+    "Attrition Bite": "residue",
+    "Hapten Graze":   "residue",
+    "Burst Leech":    "residue",
+    "Ambush Coil":    "residue",
+    "Clade Snare":    "residue",
+    "Frame Pincer":   "residue",
+    "Lineage Reaper": "residue",
+    "Coil Cinch":     "residue",
+    "Idiotype Lance": "residue",
+    "Crest Bite":     "residue",
+    "Hotspot Snipe":  "residue",
+    "Mirror Fang":    "residue",
 }
 GRAN.update(_A_GRAN)
 
@@ -99,6 +140,13 @@ del _A_FAMILY, _A_GRAN, _A_MOTIF_LEN
 VIS: dict[str, float] = {
     # v1 alphabet (matches ALPHABET above):
     "N0":         0.20,   # roster n0 — present in default BB0
+    "N1": 0.40,
+    "N2": 0.70,
+    "N3": 0.15,
+    "N4": 0.35,
+    "N5": 0.00,
+    "N6": 1.00,
+    "N7": 0.10,
     "F4Nr1":      0.0,
     "F4Nr4":      0.0,
     "P_base":     0.0,
@@ -237,6 +285,22 @@ _Z = {    # name -> (z, prey_clauses, period, vis_mode)
     # vis_mode (S1): 0=none, 1=vis-weighted, 2=inverse-vis-weighted.
     # The 4th element is OPTIONAL: a 3-tuple row defaults vis_mode to 0.
     "BroadSweep": (0.40, (("F",), ("Z",)), 5, 0),
+    # Z core 15 (gap-fill)
+    "Scatter Nip":   (0.40, (("N",),),           3, 1),   # vis-weighted N hunt
+    "Epitope Bleed": (0.45, (("Z",), ("P",)),    6, 0),   # Z∪P prey
+    "Ghost Spike":   (0.50, (("N",),),           4, 2),   # inverse-vis N hunt
+    "Attrition Bite":(0.55, (("Z",),),           3, 0),   # Z only
+    "Hapten Graze":  (0.55, (("P",),),           7, 0),   # P only
+    "Burst Leech":   (0.62, (("P", "motif"),),   8, 0),   # P-motif
+    "Ambush Coil":   (0.65, (("F", "motif"),),   7, 0),   # F-motif
+    "Clade Snare":   (0.68, (("Z", "motif"),),   6, 0),   # Z-motif
+    "Frame Pincer":  (0.72, (("N", "motif"),),   5, 0),   # N-motif
+    "Lineage Reaper":(0.78, (("F", "motif", "len>=3"),), 6, 0),  # long F-motif
+    "Coil Cinch":    (0.80, (("Z", "motif", "len>=3"),), 8, 0),  # long Z-motif
+    "Idiotype Lance":(0.85, (("P", "motif", "len>=3"),), 9, 0),  # long P-motif
+    "Crest Bite":    (0.90, (("F", "f_hi"),),    6, 0),   # F threshold snipe
+    "Hotspot Snipe": (0.95, (("P", "p_hi"),),    7, 0),   # P threshold snipe
+    "Mirror Fang":   (1.00, (("Z", "generalist"),), 8, 0),# Z generalist snipe
 }
 _Z.update(_A_Z)
 
