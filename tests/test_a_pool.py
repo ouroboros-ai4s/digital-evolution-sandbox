@@ -189,3 +189,52 @@ def test_a_family_is_structural_under_magnitude_relabel(monkeypatch):
     for letter, fam in A_FAMILY.items():
         assert registry.ALPHABET[letter] == fam
         assert registry.GRAN[letter] == A_GRAN[letter]
+
+
+# --- Task 4 surface: SPECTRUM_SHAPE merge + value-domain extension ------------
+
+def test_a_pool_shape_rows_merged():
+    """8 A_SHAPE rows merged into SPECTRUM_SHAPE, verbatim from _a_pool.A_SHAPE."""
+    from des.registry import SPECTRUM_SHAPE
+    from des._a_pool import A_SHAPE
+    for letter, row in A_SHAPE.items():
+        assert letter in SPECTRUM_SHAPE, f"{letter}: missing from SPECTRUM_SHAPE"
+        assert SPECTRUM_SHAPE[letter] == row, (
+            f"{letter}: SPECTRUM_SHAPE={SPECTRUM_SHAPE[letter]!r}, A_SHAPE={row!r}")
+
+
+def test_p_frozen_shape_power_4():
+    """P_frozen aff^4 sharpening."""
+    from des.registry import SPECTRUM_SHAPE
+    assert SPECTRUM_SHAPE["P_frozen"] == (4.0, None, 0.0)
+
+
+def test_p_stutter_shape_power_4():
+    """P_stutter aff^4 sharpening."""
+    from des.registry import SPECTRUM_SHAPE
+    assert SPECTRUM_SHAPE["P_stutter"] == (4.0, None, 0.0)
+
+
+def test_p_crossclan_surge_shape_cross_mask():
+    """P_crossclan_surge cross-family jump."""
+    from des.registry import SPECTRUM_SHAPE
+    assert SPECTRUM_SHAPE["P_crossclan_surge"] == (1.0, "cross", 0.0)
+
+
+def test_spectrum_shape_power_domain_includes_4():
+    """S8 extension: power ∈ {1, 2, 3, 4}."""
+    from des.registry import SPECTRUM_SHAPE
+    powers = {row[0] for row in SPECTRUM_SHAPE.values()}
+    assert 4.0 in powers, "power=4.0 must be present for P_frozen / P_stutter"
+    for letter, (power, _, _) in SPECTRUM_SHAPE.items():
+        assert power in (1.0, 2.0, 3.0, 4.0), f"{letter}: bad power {power!r}"
+
+
+def test_spectrum_shape_family_mask_domain_includes_cross():
+    """S8 extension: family_mask ∈ {None, F, Z, N, adjacent, cross}."""
+    from des.registry import SPECTRUM_SHAPE
+    masks = {row[1] for row in SPECTRUM_SHAPE.values()}
+    assert "cross" in masks, "family_mask='cross' must be present for P_crossclan_surge"
+    for letter, (_, mask, _) in SPECTRUM_SHAPE.items():
+        assert mask in (None, "F", "Z", "N", "adjacent", "cross"), (
+            f"{letter}: bad family_mask {mask!r}")

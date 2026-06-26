@@ -48,17 +48,17 @@ def test_spectrum_shape_values_match_roster_verbatim():
 
 
 def test_spectrum_shape_power_in_legal_set():
-    """power ∈ {1.0, 2.0, 3.0}."""
+    """power ∈ {1.0, 2.0, 3.0, 4.0} (S8 adds 4.0 for P_frozen/P_stutter)."""
     from des.registry import SPECTRUM_SHAPE
     for letter, (power, _, _) in SPECTRUM_SHAPE.items():
-        assert power in (1.0, 2.0, 3.0), f"{letter}: bad power {power!r}"
+        assert power in (1.0, 2.0, 3.0, 4.0), f"{letter}: bad power {power!r}"
 
 
 def test_spectrum_shape_family_mask_in_legal_set():
-    """family_mask ∈ {None, 'F', 'Z', 'N', 'adjacent'}."""
+    """family_mask ∈ {None, 'F', 'Z', 'N', 'adjacent', 'cross'} (S8 adds 'cross')."""
     from des.registry import SPECTRUM_SHAPE
     for letter, (_, mask, _) in SPECTRUM_SHAPE.items():
-        assert mask in (None, "F", "Z", "N", "adjacent"), (
+        assert mask in (None, "F", "Z", "N", "adjacent", "cross"), (
             f"{letter}: bad family_mask {mask!r}")
 
 
@@ -221,3 +221,47 @@ def test_p_loopswap_lite_adjacent_can_reach_new_F_letters():
         assert letter in spec, f"{letter} (residue F) missing from P_loopswap_lite spectrum"
     for letter in ("FCLUMP", "FFRONT"):
         assert letter not in spec, f"{letter} (motif F) leaked into P (residue) spectrum"
+
+
+# --- S8: cross-family mask + power=4 behaviour --------------------------------
+
+def test_p_crossclan_surge_only_hits_cross_rank_targets():
+    """family_mask='cross' (|Δrank|>=2): P (rank=2) cross targets must be
+    rank=0 (N), |2-0|=2 >= 2. F/P/Z must not receive mass."""
+    from des.types import FAMILY_RANK
+    from des.registry import _spectrum_for, ALPHABET
+    src_rank = FAMILY_RANK["P"]
+    spec = dict(_spectrum_for("P_crossclan_surge"))
+    for t, q in spec.items():
+        if q == 0:
+            continue
+        rank_dt = abs(FAMILY_RANK[ALPHABET[t]] - src_rank)
+        assert rank_dt >= 2, (
+            f"P_crossclan_surge mass leaked to |Δrank|={rank_dt} target {t!r}")
+
+
+def test_p_frozen_aff_pow_4_sharper_than_aff_pow_3():
+    """P_frozen (aff^4) vs P_entropy_brake (aff^3): higher power concentrates mass
+    more sharply on high-affinity targets. Verify P_frozen allocates more mass to
+    same-P targets (affinity=0.70) than P_entropy_brake."""
+    from des.registry import _spectrum_for, ALPHABET
+    brake = dict(_spectrum_for("P_entropy_brake"))
+    frozen = dict(_spectrum_for("P_frozen"))
+    same_p = [t for t in brake if ALPHABET[t] == "P" and t != "P_entropy_brake"]
+    same_p_frozen = [t for t in frozen if ALPHABET[t] == "P" and t != "P_frozen"]
+    brake_mass = sum(brake[t] for t in same_p)
+    frozen_mass = sum(frozen[t] for t in same_p_frozen)
+    assert frozen_mass > brake_mass + 1e-9, (
+        f"P_frozen mass on same-P ({frozen_mass:.4f}) must exceed P_entropy_brake "
+        f"({brake_mass:.4f}) — aff^4 is sharper, concentrates on high-affinity")
+
+
+def test_p_crossclan_surge_renormalizes_to_unity():
+    """family_mask='cross' spectrum still normalizes to 1.0."""
+    import pytest
+    from des.registry import _spectrum_for
+    spec = _spectrum_for("P_crossclan_surge")
+    if spec == ():
+        pytest.skip("no cross-rank targets in current alphabet")
+    total = sum(q for _, q in spec)
+    assert abs(total - 1.0) < 1e-9

@@ -285,16 +285,21 @@ SPECTRUM_SHAPE: dict[str, tuple[float, "str | None", float]] = {
     "P_balanced":       (1.0, None,       0.0),
 }
 
-# TODO(s8-task4): re-enable after A_SHAPE merge into SPECTRUM_SHAPE.
-# assert set(SPECTRUM_SHAPE.keys()) == set(_P.keys()), (
-#     "SPECTRUM_SHAPE must be co-extensive with _P; "
-#     f"missing={set(_P.keys()) - set(SPECTRUM_SHAPE.keys())}, "
-#     f"extra={set(SPECTRUM_SHAPE.keys()) - set(_P.keys())}")
+# S8: merge A_SHAPE (8 P-pool A rows) BEFORE value-domain assert.
+from des._a_pool import A_SHAPE as _A_SHAPE
+SPECTRUM_SHAPE.update(_A_SHAPE)
+del _A_SHAPE
+
+# Module-load value-domain assertions (S2 base + S8 extension).
+assert set(SPECTRUM_SHAPE.keys()) == set(_P.keys()), (
+    "SPECTRUM_SHAPE must be co-extensive with _P; "
+    f"missing={set(_P.keys()) - set(SPECTRUM_SHAPE.keys())}, "
+    f"extra={set(SPECTRUM_SHAPE.keys()) - set(_P.keys())}")
 for _letter, (_power, _mask, _mix) in SPECTRUM_SHAPE.items():
-    assert _power in (1.0, 2.0, 3.0), \
-        f"SPECTRUM_SHAPE[{_letter!r}].power = {_power!r} not in {{1,2,3}}"
-    assert _mask in (None, "F", "Z", "N", "adjacent"), \
-        f"SPECTRUM_SHAPE[{_letter!r}].family_mask = {_mask!r} not in {{None,F,Z,N,adjacent}}"
+    assert _power in (1.0, 2.0, 3.0, 4.0), \
+        f"SPECTRUM_SHAPE[{_letter!r}].power = {_power!r} not in {{1,2,3,4}}"
+    assert _mask in (None, "F", "Z", "N", "adjacent", "cross"), \
+        f"SPECTRUM_SHAPE[{_letter!r}].family_mask = {_mask!r} not in {{None,F,Z,N,adjacent,cross}}"
     assert 0.0 <= _mix <= 1.0, \
         f"SPECTRUM_SHAPE[{_letter!r}].flatten_mix = {_mix!r} outside [0,1]"
 del _letter, _power, _mask, _mix
@@ -353,6 +358,9 @@ def _spectrum_for(letter: str) -> tuple[tuple[str, float], ...]:
             pass
         elif mask == "adjacent":
             if abs(FAMILY_RANK[ALPHABET[t]] - src_rank) != 1:
+                continue
+        elif mask == "cross":                       # S8: |Δrank| >= 2
+            if abs(FAMILY_RANK[ALPHABET[t]] - src_rank) < 2:
                 continue
         else:
             if ALPHABET[t] != mask:
