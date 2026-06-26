@@ -5,7 +5,7 @@
 
 ## OPEN
 
-- **[OPEN-1] 突变选择机制**: ✅已解(2026-06-24 重订 + 数值)。A 池覆写列表 = backbone 上下文门控谓词 $\{\text{株}:n_{\text{locked}}(\text{chan})\ge\theta_{\text{chan}}\}$——某 A 只在 backbone 已充分该通道专化的物种内、由 gran 匹配的可变插槽突变涌现。「建难」由门控自然涌现(极端 F 变体只在 F-重株里冒头),非手写阶梯。**数值(数值策划团协商,用户拍)**:① $\theta_F=\theta_P=\theta_Z=3$ 统一(差异化=手写谁稀有=私货,否决);② $n_{\text{locked}}(\text{chan})$ = 该株 backbone-locked 位里 family 标签=chan(F/P/Z)的**基元**计数(按基元非字母;一条跨多位的 locked motif 算 1;N 不计任何通道);③ **θ 惰性**:$n_{\text{locked}}$ 是物种级常数(backbone 定死,整条血统所有株相同,插槽突变改不了),默认对照局四阵营同一 BB0→门全开/全关无阵营差异,A 池静默;θ 只在未来异 backbone 角色系统(HARD-GATE)才被行使。**废弃**:逐条点名前驱、「非对称律/阶梯/破易建难」(均非用户设计的概念)。
+- **[OPEN-1] 突变选择机制**: ✅已解(2026-06-24 重订 + 数值)。RETIRED (2026-06-24) — the n_locked≥θ overwrite gate is removed; A obeys the single global affinity rule. n_locked kept as an advisory structural readout, not wired into mutation. A primitives are family F/P/Z at extreme values (NOT rank-4); reachable within-family at aff=0.70 via the normal spectrum. copy-of is lineage annotation only — mutation core never reads it.
 - **[OPEN-2] Z 单字母狙击猎物清单**: ✅已解,改特征阈值(见 Z 池末三条)。
 - **[OPEN-3] backbone 大幅扩充**: 长度待定(给「主体覆写 N」提供更多 N0 槽)。基元 config 与此无关。
 - **A 池(24)**: 8 个 FPZ 精选拷贝 + 16 专属(甲新通道/乙极端变体)。Phase 2 设计中,新通道须过闸。
@@ -187,88 +187,87 @@
 
 - **Apex Bloom**: 最强繁衍爆点,四方向全向扩张推到极限,源格高自损。[copy-of F4Nr4]
   - $f=0.85,\; \text{dirs}=\text{4-nbr},\; p_{\text{leave}}=0.20,\; T=4$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Ember Drip**: 废档脉冲,极低 f 单向慢钟几乎不扩张(下坠样本)。[copy-of F4Nr1]
   - $f=0.05,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 of 4-nbr}),\; p_{\text{leave}}=0.04,\; T=9$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Bastion Pile**: 极限囤积,原地零外扩高 f 垫满 count 死守名额。[copy-of FSTACK]
   - $f=0.85,\; \text{dirs}=\{(0,0)\},\; p_{\text{leave}}=0.00,\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Apex Fang**: 单字母 Z 狙击 z 顶到极限,最窄清单换最高效率。[copy-of Mirror Fang]
   - $z=1.50,\; \text{prey}=\{s:\text{fam}(s)=Z\wedge z_s\le0.45\wedge|\text{prey}_s|\ge2\},\; T=9$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Pan Sweep**: 三族通吃宽扫(F∪Z∪P),z 仍压低(宽谱代价=高自损)。[copy-of BroadSweep]
   - $z=0.50,\; \text{prey}=\{F,Z,P\},\; T=6$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Hotspot Amp**: AID 热点加码推到上限,全向谱高通量。[copy-of P_hotspot]
   - $p_{\text{add}}=0.30,\; \text{rate}=0.31,\; q(t)\propto\text{aff}(\cdot),\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Sink Cascade**: 高率功能丧失,谱锁投 N 族快速漂回中性(率强产出垃圾)。[copy-of P_neutral_sink]
   - $p_{\text{add}}=0.25,\; \text{rate}=0.26,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[\text{fam}(t)=N],\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Glacial Drift**: 极慢全向漂变,零加码 + 最慢钟近不动(废档慢端)。[copy-of P_slow_drift]
   - $p_{\text{add}}=0,\; \text{rate}=\mu,\; q(t)\propto\text{aff}(\cdot),\; T=12$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 
 ### 乙2 — 8 个 A 原生极端变体
 
 - **F_NOVA**: 极端强爆-长静息,爆窗一次性向四邻投 0.85 但 50% 自迁出露背。
   - $\text{dirs}=\text{4-nbr},\; p_{\text{leave}}=0.50,\; T=2;\;(T-\text{birth})\bmod 20<1\Rightarrow f=0.85,\text{ else }0.05$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **F_TRICKLE**: 绝对地板繁衍,f=0.02 单向慢钟效率近零(阶梯最底)。
   - $f=0.02,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 of 4-nbr}),\; p_{\text{leave}}=0.02,\; T=8$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **F_SCATTER**: 奇异超薄云团,低 f 随机 3 格 + 最高迁出 0.60 清空源格成移动飞地。
   - $f=0.12,\; \text{dirs}=\{\text{3 of 4-nbr by hash}\},\; p_{\text{leave}}=0.60,\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Predator Lock**: 长 Z-motif 专杀的杀手,z=1.45 守最窄长 motif(克制链收口)。
   - $z=1.45,\; \text{prey}=\{\ell\ge3\text{ motif}\ni Z\},\; T=9$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Void Bite**: 破隐身流,只瞄低 vis 中性,命中按 (1−vis) 加权,专罚盲区策略。
   - $z=0.95,\; \text{prey}=\{s:\text{fam}(s)=N\wedge vis_s\le0.20\},\; p_{\text{hit}}=\tfrac1L\sum_i(1-vis_i),\; T=5$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **P_cascade**: 双位点级联,单次事件覆写 2 插槽(SHM 连发),高率全向。
   - $p_{\text{add}}=0.28,\; \text{rate}=0.29,\; q(t)\propto\text{aff}(\cdot),\; \text{2 slots/event},\; T=2$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **P_crossclan_surge**: 跨族大跳,谱只投远族(|Δrank|≥2,亲和 0.05 罕跳)穿鞍点。
   - $p_{\text{add}}=0.20,\; \text{rate}=0.21,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[|\Delta\text{rank}|\ge2],\; T=4$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **P_frozen**: 近锁突变,零加码 + 谱高阶幂锐化锁同族(几乎只自环)。
   - $p_{\text{add}}=0,\; \text{rate}=\mu,\; q(t)\propto\text{aff}(\cdot)^{4},\; T=8$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 
 ### 甲 — 8 个 A 原生极端变体(补满 24,均产 f/p/z)
 
 - **F8Ar1**: 最快钟搅动机,单随机格中 f 但 T2 极速(churn 引擎持续薄撒)。
   - $f=0.25,\; \text{dirs}=\{\text{1 rand of 4-nbr/tick}\},\; p_{\text{leave}}=0.10,\; T=2$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Lance Front**: 极限楔形锋线,单固定方向(hash 锁)f=0.80,高迁出露背。
   - $f=0.80,\; \text{dirs}=\{d_{\text{hash}}\}(\text{1 fixed}),\; p_{\text{leave}}=0.30,\; T=4$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(F)\ge\theta_F\}$ — F-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Ambush Venom**: F-motif 专杀强档,z=1.30 守最窄繁衍 motif 清单。
   - $z=1.30,\; \text{prey}=\{\text{motif}\ni F\},\; T=7$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Sweep Surge**: 极端低-z 快钟通才,猎 F∪P 但 z 仅 0.45(宽=高自损,守反相关)。
   - $z=0.45,\; \text{prey}=\{F,P\},\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Nip Whisper**: 废档对抗,z=0.15 几乎不划算,瞄暴露中性按 vis 加权(下坠端)。
   - $z=0.15,\; \text{prey}=\{N\},\; p_{\text{hit}}=\tfrac1L\sum_{i\in N}vis_i,\; T=3$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **Coil Null**: 废档 Z 猎手,z=0.20 慢钟瞄整 Z 族,猎物稀少即自损饿死。
   - $z=0.20,\; \text{prey}=\{Z\},\; T=8$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(Z)\ge\theta_Z\}$ — Z-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **P_zscan_invert**: 攻击转扩张,谱反投 F 族(获得对抗→获得繁衍),中档加码。
   - $p_{\text{add}}=0.10,\; \text{rate}=0.11,\; q(t)\propto\text{aff}(\cdot)\cdot\mathbb{1}[\text{fam}(t)=F],\; T=4$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 - **P_stutter**: 伪突变废档,率推到上限但谱高阶幂锐化近自环(高率零产出)。
   - $p_{\text{add}}=0.32,\; \text{rate}=0.33,\; q(t)\propto\text{aff}(\cdot)^{4},\; T=2$
-  - 覆写: $\{\text{株}:n_{\text{locked}}(P)\ge\theta_P\}$ — P-重 backbone 物种内由 gran 匹配插槽突变涌现
+  - 覆写: A reachable via affinity spectrum (same-family draw, aff=0.70, gran-matched); θ-gate retired (de-gate, 2026-06-24).
 
 ## 覆写列表 (overwrite/predecessor list)
 
-✅ 两种形态(2026-06-24 重订):
+✅ A 池 (24) 的覆写已 RETIRED (2026-06-24)。仅保留 N/F/P/Z 池的 `from:` 行作为后续设计参考线(非红线判据)。
 
-- **A 池(24)** = backbone 上下文门控谓词 $\{\text{株}:n_{\text{locked}}(\text{chan})\ge\theta_{\text{chan}}\}$,inline 在每条 A 的 `覆写:` 行。同通道共用同一门,差异在各自 formula。「建难」由门控涌现(极端变体只在该通道已专化的物种内冒头),非手写阶梯。
 - **N/F/P/Z 池** 仍保留各自 `from:` 行(中性互漂 / 功能获得方向),为后续设计的参考线,非红线判据。
 
 **废弃**(均非用户设计的概念,2026-06-24 删):逐条点名前驱当红线、「三结构律(粒度/阶梯/非对称)」、「破易建难非对称律」、对称性。粒度配对(residue↔residue / motif↔motif)是突变核机制本身,不需另立为律。

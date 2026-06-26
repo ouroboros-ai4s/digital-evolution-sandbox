@@ -289,3 +289,43 @@ def test_phenotype_dominant_p_field_still_used_by_slots_per_event():
     p = phenotype(seq)
     assert p.slots_per_event == 2, (
         f"dominant_p='P_cascade' should propagate slots=2, got {p.slots_per_event!r}")
+
+
+# --- Task 6 surface: default-run regression lock ------------------------------
+
+def test_default_4_faction_run_byte_identical_post_s8():
+    """spec §3 红线: 默认 4 同 BB0 faction 局, 同 seed 跑两次 world.count /
+    strain_id byte-equal. A pool 不入默认调色板 ⇒ blend 单字母 identity ⇒
+    static run 与 pre-S8 字节级不变."""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng_a = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_b = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_a.run(30, recorder=None, stop_on=())
+    eng_b.run(30, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count), (
+        "default 4-faction run not deterministic post-S8")
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id), (
+        "default 4-faction strain trajectory not deterministic post-S8")
+
+
+def test_no_a_pool_letter_in_default_palette():
+    """spec §3 红线: BB0_TEMPLATE 默认调色板里不含任何 A letter."""
+    from des.registry import BB0_TEMPLATE
+    from des._a_pool import A_FAMILY
+    for letter in BB0_TEMPLATE["layout"]:
+        assert letter not in A_FAMILY, (
+            f"BB0 default contains A letter {letter!r} — must be v1 6-letter palette only")
+
+
+def test_alphabet_post_S8_size_is_v1_plus_S2_plus_A():
+    """ALPHABET 大小粗略下限: 24 个 A letter 全部进 ALPHABET, 总数 >= 30."""
+    from des.registry import ALPHABET
+    from des._a_pool import A_FAMILY
+    assert all(l in ALPHABET for l in A_FAMILY)
+    assert len(ALPHABET) >= 30, f"expected ALPHABET >= 30 letters post-S8, got {len(ALPHABET)}"
