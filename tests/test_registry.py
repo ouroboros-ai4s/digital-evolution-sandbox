@@ -291,3 +291,15 @@ def test_s3_z_prey_card_module_level_derivation():
     from des.registry import _Z, _Z_PREY_CARD
     assert set(_Z_PREY_CARD) == set(_Z)
     assert _Z_PREY_CARD["BroadSweep"] == 2
+
+
+# ---------------------------------------------------------------------------
+# S7 Task 1: SLOTS_PER_EVENT registry table
+# ---------------------------------------------------------------------------
+
+def test_s7_slots_per_event_covers_every_alphabet_letter():
+    """S7: 跨 file 同款覆盖断言 (sibling to S6 test_gran_covers_every_alphabet_letter)."""
+    from des.registry import SLOTS_PER_EVENT, ALPHABET
+    assert set(SLOTS_PER_EVENT.keys()) == set(ALPHABET.keys())
+    for letter, n in SLOTS_PER_EVENT.items():
+        assert n == 1, f"{letter}: pre-S8 active letter must have slots_per_event=1"

@@ -268,6 +268,27 @@ for _letter, (_power, _mask, _mix) in SPECTRUM_SHAPE.items():
         f"SPECTRUM_SHAPE[{_letter!r}].flatten_mix = {_mix!r} outside [0,1]"
 del _letter, _power, _mask, _mix
 
+# Slots-per-event per primitive (S7 §2-3). N slots/event for the mutation core.
+# v1 + S0..S6 active letters all default to 1 (current single-slot behavior).
+# P_cascade is the sole roster row with slots=2 (primitive-roster.md L230) and
+# is minted by S8 — when S8 lands, S8 adds 'P_cascade': 2 here. The assert below
+# keeps the key set closed under ALPHABET so a future letter without a row
+# halts at import time rather than silently picking up `.get(letter, 1)` magic.
+SLOTS_PER_EVENT: dict[str, int] = {letter: 1 for letter in ALPHABET}
+
+# Module-load value-domain assertions (spec §2 red line + §5 error handling).
+# Halt fail-fast at import if a future spec edits the dict to a malformed value.
+assert set(SLOTS_PER_EVENT.keys()) == set(ALPHABET.keys()), (
+    "SLOTS_PER_EVENT must be co-extensive with ALPHABET; "
+    f"missing={set(ALPHABET) - set(SLOTS_PER_EVENT)}, "
+    f"extra={set(SLOTS_PER_EVENT) - set(ALPHABET)}")
+for _letter, _n in SLOTS_PER_EVENT.items():
+    assert isinstance(_n, int), \
+        f"SLOTS_PER_EVENT[{_letter!r}] = {_n!r}: must be int"
+    assert _n in (1, 2), \
+        f"SLOTS_PER_EVENT[{_letter!r}] = {_n!r}: value must be in {{1, 2}} pre-S8"
+del _letter, _n
+
 
 def affinity(src_family: str, dst_family: str) -> float:
     d = abs(FAMILY_RANK[src_family] - FAMILY_RANK[dst_family])
