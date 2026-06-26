@@ -394,12 +394,17 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
 
 
 def prey_mask_for_clauses(prey_clauses: tuple[tuple[str, ...], ...]) -> int:
-    """Predicate-bit prey mask for a Z row's clause list (S6 §3.5).
+    """Predicate-bit prey mask for a Z row's clause list (S6 §3.5 + S3 §3.2).
     Each clause is a tuple whose first element is the family ('F'|'P'|'Z'|'N')
     and whose optional further elements specialize the predicate:
-      ('F',)                → family_F bit
-      ('F', 'motif')        → motif_F bit
-      ('F', 'motif','len>=3') → motif3_F bit
+      ('F',)                     → family_F bit                      (S6)
+      ('F', 'motif')             → motif_F bit                       (S6)
+      ('F', 'motif', 'len>=3')   → motif3_F bit                      (S6)
+      ('F', 'f_hi')              → thr_crest bit                     (S3 — Crest Bite)
+      ('P', 'p_hi')              → thr_hotspot bit                   (S3 — Hotspot Snipe)
+      ('Z', 'generalist')        → thr_mirror bit                    (S3 — Mirror Fang)
+      ('N', 'lowvis')            → vis_lowvis bit                    (S3 — Void Bite; S1 reserved bit 11)
+      ('F', '<unknown_tag>')     → family_F bit (fall through, forward-compat)
     OR the selected bits to form prey_mask. Pure function of the clause list."""
     m = 0
     for clause in prey_clauses:
@@ -412,7 +417,16 @@ def prey_mask_for_clauses(prey_clauses: tuple[tuple[str, ...], ...]) -> int:
                 m |= PREDICATE_BIT[f"motif3_{fam}"]
         elif "motif" in tags:
             m |= PREDICATE_BIT[f"motif_{fam}"]
+        elif "f_hi" in tags and fam == "F":
+            m |= PREDICATE_BIT["thr_crest"]
+        elif "p_hi" in tags and fam == "P":
+            m |= PREDICATE_BIT["thr_hotspot"]
+        elif "generalist" in tags and fam == "Z":
+            m |= PREDICATE_BIT["thr_mirror"]
+        elif "lowvis" in tags and fam == "N":
+            m |= PREDICATE_BIT["vis_lowvis"]
         else:
+            # forward-compat fallback: unknown tag (or no tag) → family bit
             m |= PREDICATE_BIT[f"family_{fam}"]
     return m
 

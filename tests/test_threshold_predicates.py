@@ -232,3 +232,74 @@ def test_thr_crest_is_per_letter_not_stacked_f():
     assert not (m & PREDICATE_BIT["thr_crest"]), (
         f"thr_crest leaked stacked f. seq stacked f={p.f}, but no _F letter "
         "has f>=0.5; bit must be CLEAR (per-letter, not stacked).")
+
+
+# ---------------------------------------------------------------------------
+# Task 4: prey_mask_for_clauses 4 个新 clause-tag
+# ---------------------------------------------------------------------------
+
+def test_prey_mask_for_clauses_f_hi_tag_selects_thr_crest():
+    """clause ('F', 'f_hi') 仅命中 PREDICATE_BIT['thr_crest']."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("F", "f_hi"),))
+    assert pm == PREDICATE_BIT["thr_crest"], (
+        f"('F','f_hi') must select only thr_crest; got pm={pm:b}")
+
+
+def test_prey_mask_for_clauses_p_hi_tag_selects_thr_hotspot():
+    """clause ('P', 'p_hi') 仅命中 PREDICATE_BIT['thr_hotspot']."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("P", "p_hi"),))
+    assert pm == PREDICATE_BIT["thr_hotspot"]
+
+
+def test_prey_mask_for_clauses_generalist_tag_selects_thr_mirror():
+    """clause ('Z', 'generalist') 仅命中 PREDICATE_BIT['thr_mirror']."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("Z", "generalist"),))
+    assert pm == PREDICATE_BIT["thr_mirror"]
+
+
+def test_prey_mask_for_clauses_lowvis_tag_selects_vis_lowvis():
+    """clause ('N', 'lowvis') 仅命中 PREDICATE_BIT['vis_lowvis'] (S1 reserved 索引 11)."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("N", "lowvis"),))
+    assert pm == PREDICATE_BIT["vis_lowvis"]
+
+
+def test_prey_mask_for_clauses_family_only_unchanged_post_s3():
+    """S6 既有 (fam,) family-only clause 行为字节级不变 (regression lock)."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    # BroadSweep 的 default clauses
+    pm = prey_mask_for_clauses((("F",), ("Z",)))
+    expected = PREDICATE_BIT["family_F"] | PREDICATE_BIT["family_Z"]
+    assert pm == expected, (
+        f"family-only clauses changed; got {pm:b}, expected {expected:b}")
+
+
+def test_prey_mask_for_clauses_motif_clauses_unchanged_post_s3():
+    """S6 既有 ('F', 'motif') / ('Z', 'motif', 'len>=3') 行为字节级不变."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm_m = prey_mask_for_clauses((("F", "motif"),))
+    assert pm_m == PREDICATE_BIT["motif_F"]
+    pm_m3 = prey_mask_for_clauses((("Z", "motif", "len>=3"),))
+    assert pm_m3 == PREDICATE_BIT["motif3_Z"]
+
+
+def test_prey_mask_for_clauses_mixed_old_and_new_tags_OR():
+    """混合 clause: (Z, generalist) + (F,) → thr_mirror | family_F (OR over clauses)."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("Z", "generalist"), ("F",)))
+    expected = PREDICATE_BIT["thr_mirror"] | PREDICATE_BIT["family_F"]
+    assert pm == expected
+
+
+def test_prey_mask_for_clauses_unknown_tag_falls_through_to_family():
+    """spec §3.2 设计契约: unknown tag 不应抛, 而是 fall through 到 family-only.
+    这条守 forward-compat — 未来 spec 加新 tag 时, 旧 _Z 行的 clause 仍正确解析。
+
+    构造: ('F', 'unknown_future_tag') → 应解释为 family_F bit."""
+    from des.registry import prey_mask_for_clauses, PREDICATE_BIT
+    pm = prey_mask_for_clauses((("F", "unknown_future_tag"),))
+    assert pm == PREDICATE_BIT["family_F"], (
+        f"unknown tag must fall through to family bit; got {pm:b}")
