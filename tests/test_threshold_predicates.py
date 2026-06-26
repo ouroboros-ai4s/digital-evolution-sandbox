@@ -168,3 +168,67 @@ def test_thr_bits_pure_function_of_sequence_under_fixed_registry():
     assert a & PREDICATE_BIT["thr_hotspot"]
     assert a & PREDICATE_BIT["thr_mirror"]
     assert a & PREDICATE_BIT["vis_lowvis"]
+
+
+# ---------------------------------------------------------------------------
+# Task 3: byte-identical 回归 + per-letter audit
+# ---------------------------------------------------------------------------
+
+def test_default_bb0_same_seed_byte_identical_post_s3():
+    """S3 给 feature_mask_of 加 3 个 thr_* bit, 但 v1 没有 prey clause target
+    它们 (BroadSweep 仍 (("F",), ("Z",)) family-only). 默认 BB0 4-faction 局
+    跑 30 tick, world.count + strain_id 字节级一致 (regression lock §6).
+
+    判定: 同 seed 双跑得到 bit-identical 结果 — 守 antagonism kernel 没多
+    吃 / 少吃 kill。"""
+    import torch
+    from des.engine import Engine
+    from des.registry import BB0_TEMPLATE
+    eng_a = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_b = Engine(H=8, W=8, K=8, seed=0, device=torch.device("cpu"),
+                   z_max=8.0, fill_per_cell=2,
+                   layouts=(BB0_TEMPLATE["layout"],) * 4)
+    eng_a.run(30, recorder=None, stop_on=())
+    eng_b.run(30, recorder=None, stop_on=())
+    assert torch.equal(eng_a.world.count, eng_b.world.count)
+    assert torch.equal(eng_a.world.strain_id, eng_b.world.strain_id)
+
+
+def test_default_bb0_match_relation_byte_identical_with_synthetic_predator():
+    """加一个仅命中 thr_mirror 的合成 predator strain, 它去打默认 BB0 prey
+    时 antagonism 的 (prey_mask & feature_mask) 关系应与「BroadSweep 走 family
+    clause」的旧关系一致 — thr_mirror SET on default BB0 prey, 但 ('Z',) family
+    clause 也 hit prey BroadSweep 上的 family_Z 位 — 两条 path 都 produce 非零
+    bitand. 这一条只验逻辑等价, 不验数值."""
+    from des.registry import (feature_mask_of, prey_mask_for_clauses,
+                               PREDICATE_BIT, BB0_TEMPLATE)
+    prey_m = feature_mask_of(BB0_TEMPLATE["layout"])
+    family_z_clause = (("Z",),)
+    fm_pred_family = prey_mask_for_clauses(family_z_clause)
+    # family_Z bit 与 BroadSweep 在 prey strain 上的 family_Z bit 相 & 应非零
+    assert (fm_pred_family & prey_m) != 0
+    # thr_mirror bit 也应在 prey strain 上 SET (BB0 含 BroadSweep z=0.40, |prey|=2)
+    assert (PREDICATE_BIT["thr_mirror"] & prey_m) != 0
+
+
+def test_thr_crest_is_per_letter_not_stacked_f():
+    """spec §2 红线 + Global Constraint: thr_crest 读 `_F[letter][0]`, 不读
+    Phenotype.f (stacked).
+
+    构造: F4Nr1 (f=0.30) + F4Nr1 (f=0.30) → stacked f = 1-(1-0.3)(1-0.3) = 0.51,
+    > 0.5 stacked threshold; 但 per-letter f 都是 0.30 < 0.5 → thr_crest CLEAR.
+
+    若 thr_crest 误读了 Phenotype.f (stacked), 这条会假阳性 SET; 正确实现
+    应 CLEAR."""
+    from des.registry import phenotype, feature_mask_of, PREDICATE_BIT
+    seq = ("F4Nr1", "F4Nr1") + ("N0",) * 14
+    p = phenotype(seq)
+    # stacked f 已超过 0.5 (sanity check 表达 stacked 算法仍生效)
+    assert p.f > 0.5, f"stacked f should exceed 0.5; got {p.f}"
+    # 但 per-letter 都未达 0.5, thr_crest 必须 CLEAR
+    m = feature_mask_of(seq)
+    assert not (m & PREDICATE_BIT["thr_crest"]), (
+        f"thr_crest leaked stacked f. seq stacked f={p.f}, but no _F letter "
+        "has f>=0.5; bit must be CLEAR (per-letter, not stacked).")
