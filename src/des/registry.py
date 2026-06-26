@@ -368,6 +368,28 @@ def feature_mask_of(sequence: tuple[str, ...]) -> int:
         if ALPHABET.get(letter) == "N" and VIS.get(letter, 0.0) <= 0.20:
             m |= PREDICATE_BIT["vis_lowvis"]
             break
+    # S3: thr_crest — strain carries any F letter with f >= 0.5 (Crest Bite prey
+    # clause from roster §1 + spec §3.1). Default BB0's F4Nr4 (f=0.50) SETs it.
+    for letter in sequence:
+        if letter in _F and _F[letter][0] >= 0.5:
+            m |= PREDICATE_BIT["thr_crest"]
+            break
+    # S3: thr_hotspot — strain carries any P letter with p_add >= 0.05 (Hotspot
+    # Snipe prey clause). Default BB0's P_base (0.0) does NOT set it.
+    for letter in sequence:
+        if letter in _P and _P[letter][0] >= 0.05:
+            m |= PREDICATE_BIT["thr_hotspot"]
+            break
+    # S3: thr_mirror — strain carries any Z letter with z <= 0.45 AND
+    # |prey_clauses| >= 2 (Mirror Fang prey clause; |prey_s| precomputed in
+    # _Z_PREY_CARD at module load — never iterates clauses on the hot path).
+    # Default BB0's BroadSweep (z=0.40, 2 prey clauses) SETs it.
+    for letter in sequence:
+        if (letter in _Z
+                and _Z[letter][0] <= 0.45
+                and _Z_PREY_CARD.get(letter, 0) >= 2):
+            m |= PREDICATE_BIT["thr_mirror"]
+            break
     return m
 
 

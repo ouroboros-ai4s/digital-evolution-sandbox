@@ -412,15 +412,31 @@ def test_validate_bb0_layout_motif_correct_span_ok(monkeypatch):
 
 def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
     """Shuffle f/z/p magnitudes across letters; fix structural columns
-    (gran/family/MOTIF_LEN). motif_blocks / n_locked / feature_mask must
-    be byte-identical because they read structure, not magnitude.
+    (gran/family/MOTIF_LEN). motif_blocks / n_locked must be byte-identical
+    because they read structure, not magnitude. feature_mask_of reads BOTH
+    structure (family/motif bits) AND magnitude (threshold bits since S3),
+    so it may change when magnitudes change. This test verifies that the
+    STRUCTURAL bits (family_*/motif_*/motif3_*) are invariant, while
+    acknowledging that threshold bits (thr_crest/thr_hotspot/thr_mirror) may vary.
 
-    This is the §6 relabel-invariance audit translated into a single test."""
-    from des.registry import motif_blocks, n_locked, feature_mask_of, BB0_TEMPLATE
+    This is the S6 relabel-invariance audit for structural bits, updated in S3."""
+    from des.registry import (motif_blocks, n_locked, feature_mask_of, BB0_TEMPLATE,
+                              PREDICATE_BIT)
     layout = BB0_TEMPLATE["layout"]
     pre_blocks = motif_blocks(layout)
     pre_n = (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z"))
     pre_mask = feature_mask_of(layout)
+
+    # Extract structural bits (family + motif + motif3 + vis_lowvis) from pre_mask
+    # by OR-ing the known structural bit indices
+    structural_bits = (PREDICATE_BIT["family_N"] | PREDICATE_BIT["family_F"] |
+                       PREDICATE_BIT["family_P"] | PREDICATE_BIT["family_Z"] |
+                       PREDICATE_BIT["motif_F"] | PREDICATE_BIT["motif_P"] |
+                       PREDICATE_BIT["motif_Z"] | PREDICATE_BIT["motif_N"] |
+                       PREDICATE_BIT["motif3_F"] | PREDICATE_BIT["motif3_P"] |
+                       PREDICATE_BIT["motif3_Z"] | PREDICATE_BIT["vis_lowvis"])
+    pre_structural = pre_mask & structural_bits
+
     # mutate _F / _Z / _P magnitudes (NOT gran / NOT family / NOT MOTIF_LEN)
     monkeypatch.setitem(registry._F, "F4Nr1",
                         (0.95, ((1, 0),), 0.99, 99))                # change f, p_leave, period
@@ -433,7 +449,12 @@ def test_relabel_invariance_motif_n_locked_feature_mask(monkeypatch):
     # structural readouts MUST be unchanged
     assert motif_blocks(layout) == pre_blocks
     assert (n_locked(layout, "F"), n_locked(layout, "P"), n_locked(layout, "Z")) == pre_n
-    assert feature_mask_of(layout) == pre_mask
+    # STRUCTURAL bits (family/motif/motif3/vis_lowvis) must be unchanged;
+    # threshold bits (thr_*) may change due to magnitude mutations
+    post_mask = feature_mask_of(layout)
+    post_structural = post_mask & structural_bits
+    assert post_structural == pre_structural, (
+        f"structural bits changed: pre={bin(pre_structural)}, post={bin(post_structural)}")
 
 
 def test_motif_F_spectrum_only_matches_equal_length_motif_F():
